@@ -614,7 +614,7 @@ func (r *Recorder) sessionFiles(sessionID string) ([]string, error) {
 func (r *Recorder) ensureFile(sessionID string, seqStart uint64) error {
 	// Detect evidence directory disappearance mid-run BEFORE the short-
 	// circuit on an already-open r.file. Linux keeps the inode alive
-	// through rm -rf as long as the fd is open; previous rc.4/rc.5
+	// through rm -rf as long as the fd is open; previous prerelease builds
 	// guards only triggered when r.file was nil, so writes kept
 	// succeeding against an unlinked file and the operator saw nothing
 	// (the pre-tag gate rounds 3/4/5 — especially round 5's "recreation still
@@ -622,6 +622,14 @@ func (r *Recorder) ensureFile(sessionID string, seqStart uint64) error {
 	// the disappearance while r.file is still the stale fd.
 	dir := filepath.Clean(r.cfg.Dir)
 	_, statErr := os.Stat(dir)
+	if statErr != nil && !os.IsNotExist(statErr) {
+		// Fail-closed: a non-NotExist stat error (permission denied,
+		// transient I/O failure, mount unmapped) means we cannot trust
+		// the directory's state. Returning the error here prevents the
+		// short-circuit below from silently continuing to write to a
+		// stale fd while the underlying directory may have been replaced.
+		return fmt.Errorf("stat evidence directory %s: %w", r.cfg.Dir, statErr)
+	}
 	dirMissing := os.IsNotExist(statErr)
 	if dirMissing {
 		if mkErr := os.MkdirAll(dir, dirPermissions); mkErr != nil {

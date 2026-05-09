@@ -15,7 +15,7 @@ import (
 // the A2A SSE scanner (ScanA2AStream) previously scanned only the data:
 // payload and then wrote the metadata fields through to the client via
 // writeSSEEvent without inspection. That let DLP content and prompt
-// injection ride through in the metadata fields, which Rook confirmed as a
+// injection ride through in the metadata fields, which external review confirmed as a
 // tag-blocker finding:
 //
 //	event: sk-ant-FAKEKEY...
@@ -53,8 +53,12 @@ func canonicalSSEEventText(eventData []byte, reader *transport.SSEReader) string
 		}
 	}
 	if len(eventData) > 0 {
-		b.WriteString("data: ")
-		b.Write(eventData)
+		for line := range strings.SplitSeq(string(eventData), "\n") {
+			b.WriteString("data: ")
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
+		b.WriteByte('\n')
 	}
 	return b.String()
 }

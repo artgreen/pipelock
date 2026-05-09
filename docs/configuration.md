@@ -1314,7 +1314,7 @@ agents:
       max_unique_domains_per_session: 50
       window_minutes: 60
 
-  rook:
+  research-agent:
     listeners: [":8890"]
     mode: balanced
     enforce: false
@@ -1850,6 +1850,110 @@ flight_recorder:
 
 Evidence files are named `evidence-<session>-<seq>.jsonl`. Each entry contains a SHA-256 hash of its predecessor, forming a tamper-evident chain. Action receipts form a second chain within the evidence log (each receipt links to the previous receipt via `chain_prev_hash`). Breaking either chain is detectable by `pipelock integrity verify`.
 
+## Learn and Lock
+
+Per-agent behavioral-contract workflow. The `learn` block controls where observation evidence is written, how privacy salt is resolved, and which inference floors the compiler uses.
+
+```yaml
+learn:
+  enabled: false
+  capture_dir: /var/lib/pipelock/learn
+  privacy:
+    salt_source: "${PIPELOCK_LEARN_SALT}"
+    public_allowlist_default: true
+  inference:
+    floors:
+      min_sessions: 5
+      min_events: 20
+      min_windows: 3
+    normalization:
+      algorithm: frequency_weighted_entropy_v1
+      min_events: 10
+      min_distinct_values: 5
+      entropy_threshold_bits: 3.0
+      reserved_segments_extra: []
+      cardinality_cap_per_host: 1000
+      tail_promotion_block_pct: 5.0
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable the learn observation configuration. When true, `capture_dir` is required. |
+| `capture_dir` | `""` | Absolute directory for recorder JSONL evidence used by `pipelock learn observe`, `compile`, and `shadow`. Use durable storage for production captures. |
+| `privacy.salt_source` | `""` | Salt resolver for privacy-sensitive dimensions: `${VAR}` reads an environment variable, `file:/abs/path` reads a file, any other string is treated as a literal salt. |
+| `privacy.public_allowlist_default` | `true` | Use the built-in public allowlist when no explicit privacy allowlist is configured. |
+| `inference.floors.min_sessions` | `5` | Minimum distinct sessions before a rule can be classified stable. |
+| `inference.floors.min_events` | `20` | Minimum matching events before a rule can be classified stable. |
+| `inference.floors.min_windows` | `3` | Minimum observation windows before a rule can be classified stable. |
+| `inference.normalization.algorithm` | `frequency_weighted_entropy_v1` | Path-normalization algorithm. This is the only accepted value in v2.4. |
+| `inference.normalization.min_events` | `10` | Minimum events in a host/method/path bucket before segment collapse is eligible. |
+| `inference.normalization.min_distinct_values` | `5` | Minimum distinct segment values before a segment position can collapse. |
+| `inference.normalization.entropy_threshold_bits` | `3.0` | Frequency-weighted entropy threshold for segment collapse. |
+| `inference.normalization.reserved_segments_extra` | `[]` | Extra sensitive path segments that must never be collapsed. Extends the built-in reserved list; it cannot remove built-ins. |
+| `inference.normalization.cardinality_cap_per_host` | `1000` | Per-host cap for distinct path families before overflow enters the `_other` tail bucket. |
+| `inference.normalization.tail_promotion_block_pct` | `5.0` | Promotion block threshold when the `_other` tail bucket exceeds this percentage of host traffic. |
+
+`pipelock learn observe --capture-dir <abs-dir>` uses the same runtime as `pipelock run --capture-output`; it validates the capture directory and writes hash-chained recorder JSONL. `pipelock learn compile --agent <name>` signs candidate contracts with the agent's keystore key; generate one first with `pipelock keygen <name>` or pass `--keystore` / `--compile-key-agent` for a different key. `pipelock learn shadow` requires `--contract-key` unless you explicitly use the diagnostics-only `--allow-unsigned-contract-for-diagnostics` flag.
+
+For the end-to-end operator flow, see [Learn-and-Lock](guides/learn-and-lock.md).
+
+### Live lock (runtime active-set)
+
+The `learn` block above governs the observation, compile, and shadow phases. The `learn_lock` block governs the runtime path: which active-manifest directory the proxy watches, which roster pins the signing keys, and which mode the gate runs in. The two blocks are independent and can be enabled separately. `learn_lock` is opt-in and default-off; with it disabled the proxy never resolves an active contract and behaves identically to v2.3 (scanner-only).
+
+```yaml
+learn_lock:
+  enabled: false
+  mode: shadow
+  store_dir: /var/lib/pipelock/contracts/active
+  roster_path: /etc/pipelock/roster.json
+  environment:
+    id: production
+    tenant: ""
+    deployment_id: ""
+  pinned_root_fingerprint: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  minimum_signatures: 1
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `false` | Enable the live-lock runtime. When false, the proxy ignores any active manifest and runs as scanner-only. When true, every other field below is required; partial config is rejected at startup so a half-wired lock never silently downgrades. |
+| `mode` | `shadow` (when `enabled` is true) | Gate semantics: `live` enforces (block on contract deny), `shadow` evaluates and emits drift but never blocks, `capture` is silent. Empty or unknown values resolve to `shadow`, so a misconfigured lock fails toward observation rather than enforcement. |
+| `store_dir` | `""` | Absolute path to the active-manifest store (the directory containing `active.json` plus the `history/` chain). Required when `enabled` is true. The runtime watches this directory via fsnotify with a 100ms debounce and a 2s maximum-debounce cap; reload is fail-closed on initial load and missed-promote recovery walks the accepted-history chain. |
+| `roster_path` | `""` | Absolute path to the deployment-level roster JSON file naming which signing keys are authorised for which purposes. Required when `enabled` is true. The roster's root fingerprint must match `pinned_root_fingerprint`. |
+| `environment.id` | `""` | Deployment environment identifier (e.g., `production`, `staging`). Required key when `enabled` is true; non-empty value enforced by validation. |
+| `environment.tenant` | `""` | Tenant scope for contract activation. Required key when `enabled` is true; explicit empty string means intentionally unscoped tenant. |
+| `environment.deployment_id` | `""` | Deployment scope identifier. Required key when `enabled` is true; explicit empty string means intentionally unscoped deployment axis. |
+| `pinned_root_fingerprint` | `""` | Canonical sha256 fingerprint of the trust roster root key: literal `sha256:` prefix followed by 64 lowercase hex characters. Active manifests must chain to a roster signed by this root; mismatch fails closed at load. Required when `enabled` is true. |
+| `minimum_signatures` | `1` | Minimum number of valid manifest signatures the loader accepts. Higher values require dual control on promotes. Defaults to `1` when `0` or negative. |
+
+The `environment` block is a required nested mapping with all three keys present. The store compares the manifest's environment tuple against the loader's tuple by exact byte-equality, so a production cluster cannot accidentally enforce a staging contract and a multi-tenant deployment cannot enforce another tenant's contract. The old string form (`environment: production`) is rejected at config load with a migration error pointing at the nested form.
+
+Mode resolution: `EffectiveMode()` reads the field above, returning `live`, `shadow`, or `capture`; any other value resolves to `shadow`. This means a typo in `mode` does not silently enable enforcement.
+
+Restart vs reload: `enabled`, `store_dir`, `roster_path`, `environment.*`, and `pinned_root_fingerprint` require a process restart to change. `mode` and `minimum_signatures` are picked up by the next active-manifest reload.
+
+## Health Watchdog
+
+Wedge detection for `/health`. The watchdog is enabled by default and turns `/health` into a real liveness signal: HTTP 503 when scanner/config/session/kill-switch/watchdog health is bad, HTTP 200 when all tracked subsystems are healthy.
+
+```yaml
+health_watchdog:
+  enabled: true
+  interval_seconds: 2
+  expose_subsystems: false
+```
+
+| Field | Default | Restart? | Description |
+|-------|---------|----------|-------------|
+| `enabled` | `true` | Yes | Enable internal wedge detection. Set false only if an external supervisor provides equivalent checks and you want legacy always-200 health behavior. |
+| `interval_seconds` | `2` | Yes | Watchdog tick rate. The stale threshold is 3x this interval. |
+| `expose_subsystems` | `false` | Yes | Include the per-subsystem boolean map in `/health` responses. The HTTP status still reflects wedges when false; only the detailed map is hidden. |
+
+Omitting `health_watchdog`, setting it to YAML null, or leaving `enabled` blank all preserve the default `enabled: true`. Settings are operational and excluded from the canonical policy hash. Changing them on hot reload logs a warning and requires restart.
+
+For response examples and Kubernetes probe guidance, see [Health Endpoint and Wedge-Detection Watchdog](guides/health.md).
+
 ## A2A Scanning (v2.1)
 
 Scanning for Google A2A (Agent-to-Agent) protocol traffic. Detects A2A messages in forward proxy and MCP HTTP proxy paths. Applies field-aware content inspection with URL/text/secret classification.
@@ -2047,7 +2151,7 @@ mediation_envelope:
 | `actor_format` | `spiffe` | Format for newly emitted `actor` values. `spiffe` maps agent names to `spiffe://<trust_domain>/agent/<name>`; `legacy` preserves the configured name. |
 | `trust_domain` | `pipelock.local` | SPIFFE trust domain used when `actor_format: spiffe`. Must be a DNS-shaped label with no scheme, slashes, userinfo, or port. |
 | `signature_expires` | `=replay_cache.window` | Per-signature lifetime emitted by the outbound signer (Go duration string). When `verify_inbound.enabled` is true, this must be `<= verify_inbound.replay_cache.window`; an explicit value larger than the window is rejected at startup so a captured signature can never outlive its replay-cache nonce. When inbound verification is disabled, any positive duration is accepted. Empty falls back to the configured replay-cache window. |
-| `verify_inbound.enabled` | `false` | Require inbound requests to carry a valid Pipelock mediation signature before the inbound envelope headers are stripped. |
+| `verify_inbound.enabled` | `false` | Require every inbound request on this listener to carry a valid Pipelock mediation signature before the inbound envelope headers are stripped. |
 | `verify_inbound.trust_list` | `[]` | Trusted inbound signer keys. Each entry needs `key_id` and `public_key`; `well_known_url` documents the discovery source; optional `trust_domains` pins the key to one or more SPIFFE trust domains it is allowed to attest. |
 | `verify_inbound.trust_list[].trust_domains` | `[]` | When non-empty, restricts which actor trust domains the trusted key may attest. An envelope whose actor's trust domain is not in this list fails verification. Empty preserves v2.4 migration behavior (any trust domain). Production deployments should pin each key to the partner's trust domain so a compromised partner cannot impersonate another peer. |
 | `verify_inbound.replay_cache.window` | `5m` | Maximum nonce replay window for inbound signatures. The verifier rejects signatures whose declared lifetime (`expires - created`) exceeds `window + created_skew_seconds` so a captured signature cannot outlive its nonce in the cache. |
@@ -2080,7 +2184,7 @@ When enabled, the envelope carries these wire fields:
 
 **Reverse-proxy signing:** Envelope signing runs in an `http.RoundTripper` wrapper installed on `httputil.ReverseProxy.Transport`, so `@target-uri` reflects the post-Director upstream URL rather than the inbound relative path.
 
-**Inbound verification:** When `verify_inbound.enabled` is true, Pipelock verifies the inbound `Pipelock-Mediation` header and matching RFC 9421 signature against `trust_list` before stripping those headers and forwarding the request. Signatures must include `created`, `expires`, and `nonce`; the nonce is stored in a bounded in-process replay cache. The verifier additionally enforces three federation guards: (1) the signature's declared lifetime is capped at `replay_cache.window + created_skew_seconds` so a captured signature cannot outlive its nonce in the cache, (2) when a trusted key declares `trust_domains`, the SPIFFE trust domain in the envelope's `actor` must match — preventing a compromised partner key from impersonating another peer, and (3) SPIFFE actors are parsed strictly (no userinfo, no port in trust domain, no `..` or empty path segments) so an actor allowlist comparison cannot be bypassed via traversal or smuggled authority components.
+**Inbound verification:** When `verify_inbound.enabled` is true, Pipelock verifies the inbound `Pipelock-Mediation` header and matching RFC 9421 signature against `trust_list` before stripping those headers and forwarding the request. Missing signatures fail before any request body is buffered. Signatures must include `created`, `expires`, and `nonce`; the nonce is stored in a bounded in-process replay cache. The verifier additionally enforces three federation guards: (1) the signature's declared lifetime is capped at `replay_cache.window + created_skew_seconds` so a captured signature cannot outlive its nonce in the cache, (2) when a trusted key declares `trust_domains`, the SPIFFE trust domain in the envelope's `actor` must match — preventing a compromised partner key from impersonating another peer, and (3) SPIFFE actors are parsed strictly (no userinfo, no port in trust domain, no `..` or empty path segments) so an actor allowlist comparison cannot be bypassed via traversal or smuggled authority components.
 
 **Well-known key directory:** A signing proxy exposes its current envelope public key at `/.well-known/http-message-signatures-directory` with short cache headers. Unsigned envelope configurations return 404.
 
