@@ -14,11 +14,23 @@ LDFLAGS := -ldflags "-s -w \
 	-X $(MODULE)/internal/license.PublicKeyHex=$(LICENSE_PUBLIC_KEY) \
 	-X $(MODULE)/internal/rules.KeyringHex=$(LICENSE_PUBLIC_KEY)"
 
-.PHONY: build test bench lint clean docker install fmt vet tidy-check fuzz stats docs-check \
+.PHONY: all build build-verifier test bench lint clean docker install fmt vet tidy-check fuzz stats docs-check \
 	test-runtime-critical test-replay-harness release-audit runtime-policy-audit debt-check release-check
+
+all: build
 
 build:
 	go build -trimpath $(LDFLAGS) -o $(BINARY) ./cmd/pipelock
+
+VERIFIER_BINARY := pipelock-verifier
+LDFLAGS_VERIFIER := -ldflags "-s -w \
+	-X $(MODULE)/internal/cliutil.Version=$(VERSION) \
+	-X $(MODULE)/internal/cliutil.BuildDate=$(BUILD_DATE) \
+	-X $(MODULE)/internal/cliutil.GitCommit=$(GIT_COMMIT) \
+	-X $(MODULE)/internal/cliutil.GoVersion=$(GO_VERSION)"
+
+build-verifier:
+	go build -trimpath $(LDFLAGS_VERIFIER) -o $(VERIFIER_BINARY) ./cmd/pipelock-verifier
 
 install:
 	go install $(LDFLAGS) ./cmd/pipelock
@@ -69,7 +81,7 @@ tidy-check:
 	git diff --exit-code go.mod go.sum
 
 clean:
-	rm -f $(BINARY) coverage.out coverage.html
+	rm -f $(BINARY) $(VERIFIER_BINARY) coverage.out coverage.html
 
 docker:
 	docker build \
