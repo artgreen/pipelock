@@ -232,6 +232,11 @@ type Scanner struct {
 	// wedge-detection watchdog. atomic.Pointer keeps SetHeartbeat
 	// race-safe even though production wires it before Start.
 	heartbeat atomic.Pointer[heartbeatFn]
+
+	// resolver answers SSRF DNS lookups and the proxy dial path. Default is
+	// net.DefaultResolver; populated from cfg.DNS.HostOverrides in New().
+	// Hostname-only overrides; IP literals bypass via the upstream resolver.
+	resolver Resolver
 }
 
 // heartbeatFn wraps a func() so it can live behind atomic.Pointer (which
@@ -405,6 +410,12 @@ func New(cfg *config.Config) *Scanner {
 	s.trustedDomains = cfg.TrustedDomains
 	s.rawAPIAllowlist = cfg.APIAllowlist
 
+	// Install the DNS resolver. When dns.host_overrides is empty the wrapper
+	// degrades to a plain delegation to net.DefaultResolver — this keeps a
+	// single code path through the rest of the scanner and proxy regardless
+	// of whether overrides are configured.
+	s.resolver = NewStaticOverrideResolver(cfg.DNS.HostOverrides, nil)
+
 	// Initialize data budget if configured
 	if cfg.FetchProxy.Monitoring.MaxDataPerMinute > 0 {
 		s.dataBudget = NewDataBudget(cfg.FetchProxy.Monitoring.MaxDataPerMinute)
@@ -562,19 +573,26 @@ func (s *Scanner) IsInternalIP(ip net.IP) bool {
 // instead of blocking. IP literals are always rejected — trusted domains
 // only match hostnames to prevent SSRF bypass via raw IP addresses.
 func (s *Scanner) IsTrustedDomain(hostname string) bool {
+	hostname = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(hostname), "."))
 	// Reject IP literals: trusted domains match hostnames only.
 	// Without this, an attacker could add a raw IP to trusted_domains
 	// and bypass SSRF protection entirely.
 	if net.ParseIP(hostname) != nil {
 		return false
 	}
-	hostname = strings.ToLower(strings.TrimSuffix(hostname, "."))
 	for _, pattern := range s.trustedDomains {
 		if MatchDomain(hostname, pattern) {
 			return true
 		}
 	}
 	return false
+}
+
+// HostResolver returns the resolver used for SSRF DNS lookups and the proxy
+// dial path. It honors dns.host_overrides if configured and falls back to
+// net.DefaultResolver otherwise. Always non-nil for a Scanner built via New().
+func (s *Scanner) HostResolver() Resolver {
+	return s.resolver
 }
 
 // IsIPAllowlisted checks if an IP is in the SSRF IP allowlist (ssrf.ip_allowlist).
@@ -1078,7 +1096,7 @@ func (s *Scanner) checkSSRF(ctx context.Context, hostname string) Result {
 	// Fail closed: if we can't resolve DNS, we can't verify the IP is safe.
 	dnsCtx, dnsCancel := context.WithTimeout(ctx, 5*time.Second) // 5s: DNS resolution ceiling; inherits caller cancellation
 	defer dnsCancel()
-	ips, err := net.DefaultResolver.LookupHost(dnsCtx, hostname)
+	ips, err := s.resolver.LookupHost(dnsCtx, hostname)
 	if err != nil {
 		// Caller cancellation or deadline must route through the normal
 		// fail-closed ScannerContext path. dnsCtx inherits ctx, so a

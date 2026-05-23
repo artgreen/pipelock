@@ -2604,8 +2604,11 @@ func (p *Proxy) ssrfSafeDialContext(ctx context.Context, network, addr string) (
 		return p.dialer.DialContext(ctx, network, addr)
 	}
 
-	// Resolve DNS and validate every IP before connecting.
-	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	// Resolve DNS and validate every IP before connecting. Use the scanner's
+	// resolver so dns.host_overrides applies uniformly to both the SSRF
+	// scanner check and this dial-time check, preventing TOCTOU drift.
+	currentSc := p.scannerPtr.Load()
+	ips, err := currentSc.HostResolver().LookupHost(ctx, host)
 	if err != nil {
 		return nil, fmt.Errorf("ssrfSafeDialContext: DNS lookup %q: %w", host, err)
 	}
@@ -2614,7 +2617,6 @@ func (p *Proxy) ssrfSafeDialContext(ctx context.Context, network, addr string) (
 		return nil, fmt.Errorf("SSRF blocked: DNS returned no addresses for %s", host)
 	}
 
-	currentSc := p.scannerPtr.Load()
 	isTrusted := currentSc.IsTrustedDomain(host)
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)
