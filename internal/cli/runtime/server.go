@@ -88,20 +88,21 @@ type Server struct {
 	cfg          *config.Config
 	bundleResult *rules.LoadResult
 
-	sentry          *plsentry.Client
-	logger          *audit.Logger
-	emitter         *emit.Emitter
-	scanner         *scanner.Scanner
-	metrics         *metrics.Metrics
-	killswitch      *killswitch.Controller
-	ksAPI           *killswitch.APIHandler
-	proxy           *proxy.Proxy
-	receiptEmitter  *receipt.Emitter
-	envelopeEmitter *envelope.Emitter
-	captureWriter   *capture.Writer
-	recorder        *recorder.Recorder
-	conductorAudit  *auditbatcher.Transport
-	approver        *hitl.Approver
+	sentry            *plsentry.Client
+	logger            *audit.Logger
+	emitter           *emit.Emitter
+	scanner           *scanner.Scanner
+	metrics           *metrics.Metrics
+	killswitch        *killswitch.Controller
+	ksAPI             *killswitch.APIHandler
+	proxy             *proxy.Proxy
+	receiptEmitter    *receipt.Emitter
+	envelopeEmitter   *envelope.Emitter
+	captureWriter     *capture.Writer
+	recorder          *recorder.Recorder
+	conductorAudit    *auditbatcher.Transport
+	conductorProducer *auditbatcher.Producer
+	approver          *hitl.Approver
 
 	// lastReloadHash / lastReloadAt dedup fsnotify + SIGHUP stacking
 	// inside Reload. Two stacked Changes() events with the same hash
@@ -282,7 +283,7 @@ func NewServer(opts ServerOpts) (*Server, error) {
 	s.scanner = sc
 	m := metrics.New()
 	s.metrics = m
-	_, conductorAudit, conductorErr := buildConductorAuditTransport(cfg, m)
+	conductorQueue, conductorAudit, conductorErr := buildConductorAuditTransport(cfg, m)
 	if conductorErr != nil {
 		s.cleanup()
 		return nil, conductorErr
@@ -354,6 +355,7 @@ func NewServer(opts ServerOpts) (*Server, error) {
 	// separate code path (capture.Writer above). This path wires the
 	// YAML-config-driven recorder into the proxy so enforcement decisions
 	// are hash-chained to disk.
+	var recPrivKey ed25519.PrivateKey
 	if cfg.FlightRecorder.Enabled && cfg.FlightRecorder.Dir != "" {
 		recCfg := recorder.Config{
 			Enabled:            cfg.FlightRecorder.Enabled,
@@ -373,7 +375,6 @@ func NewServer(opts ServerOpts) (*Server, error) {
 			redactFn = sc.ScanTextForDLP
 		}
 
-		var recPrivKey ed25519.PrivateKey
 		if cfg.FlightRecorder.SigningKeyPath != "" {
 			k, kErr := signing.LoadPrivateKeyFile(cfg.FlightRecorder.SigningKeyPath)
 			if kErr != nil {
@@ -417,6 +418,42 @@ func NewServer(opts ServerOpts) (*Server, error) {
 
 		_, _ = fmt.Fprintf(opts.Stderr, "  Recorder: %s (flight recorder enabled)\n", cfg.FlightRecorder.Dir)
 	}
+	if conductorQueue != nil {
+		if s.recorder == nil {
+			s.cleanup()
+			return nil, errors.New("conductor audit producer requires flight recorder")
+		}
+		recPubKey, keyErr := conductorRecorderPublicKey(recPrivKey)
+		if keyErr != nil {
+			s.cleanup()
+			return nil, keyErr
+		}
+		// The flight-recorder signing key doubles as the audit-batch
+		// signer. Reuse is safe because the two signing schemes operate on
+		// disjoint byte sets: the recorder signs a bare 64-char hex chain
+		// hash, while the audit batch signs canonical JSON (`{...}`). No
+		// recorder signature can be replayed as a valid audit-batch
+		// signature or vice versa. Key ids stay separate (audit_signing_key_id
+		// vs recorder_key_id) so the sink-side roster can distinguish purpose.
+		producer, producerErr := auditbatcher.NewProducer(auditbatcher.ProducerConfig{
+			Queue:             conductorQueue,
+			Metrics:           m,
+			OrgID:             cfg.Conductor.OrgID,
+			FleetID:           cfg.Conductor.FleetID,
+			InstanceID:        cfg.Conductor.InstanceID,
+			AuditSignerKeyID:  cfg.Conductor.AuditSigningKeyID,
+			RecorderKeyID:     cfg.Conductor.RecorderKeyID,
+			AuditSigner:       recPrivKey,
+			RecorderPublicKey: recPubKey,
+		})
+		if producerErr != nil {
+			s.cleanup()
+			return nil, fmt.Errorf("creating conductor audit producer: %w", producerErr)
+		}
+		s.conductorProducer = producer
+		s.recorder.SetObserver(producer)
+		_, _ = fmt.Fprintf(opts.Stderr, "  Conductor: audit producer enabled\n")
+	}
 
 	if cfg.MediationEnvelope.Enabled {
 		s.envelopeEmitter = envelope.NewEmitter(envelope.EmitterConfig{
@@ -446,6 +483,17 @@ func NewServer(opts ServerOpts) (*Server, error) {
 	s.refreshRuntimeState(nil, cfg, bundleResult, sc)
 
 	return s, nil
+}
+
+func conductorRecorderPublicKey(priv ed25519.PrivateKey) (ed25519.PublicKey, error) {
+	if len(priv) != ed25519.PrivateKeySize {
+		return nil, errors.New("conductor audit producer requires flight recorder signing key")
+	}
+	pub, ok := priv.Public().(ed25519.PublicKey)
+	if !ok || len(pub) != ed25519.PublicKeySize {
+		return nil, errors.New("conductor audit producer requires recorder public key")
+	}
+	return pub, nil
 }
 
 // Shutdown cancels Start's internal context so the serve loop unblocks.
