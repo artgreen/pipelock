@@ -7,8 +7,29 @@
 package configsvc
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	pcfg "github.com/luckyPipewrench/pipelock/internal/config"
 )
+
+// Service manages the on-disk pipelock config at Path.
+type Service struct {
+	Path string
+}
+
+// New returns a Service for the pipelock config at path.
+func New(path string) *Service { return &Service{Path: path} }
+
+// Read returns the current pipelock.yaml contents.
+func (s *Service) Read() ([]byte, error) {
+	data, err := os.ReadFile(filepath.Clean(s.Path))
+	if err != nil {
+		return nil, fmt.Errorf("reading pipelock config: %w", err)
+	}
+	return data, nil
+}
 
 // ValidationResult reports whether submitted YAML is a valid pipelock config.
 type ValidationResult struct {

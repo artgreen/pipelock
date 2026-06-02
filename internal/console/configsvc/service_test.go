@@ -4,6 +4,7 @@
 package configsvc
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,22 @@ func TestValidateRejectsUnknownField(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(res.Error), "bogus_field") {
 		t.Errorf("error should name the offending field, got: %s", res.Error)
+	}
+}
+
+func TestServiceReadsCurrentConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/pipelock.yaml"
+	if err := os.WriteFile(path, []byte("mode: balanced\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(path)
+	got, err := svc.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "mode: balanced\n" {
+		t.Errorf("Read() = %q", got)
 	}
 }
 
