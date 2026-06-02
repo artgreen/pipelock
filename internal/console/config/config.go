@@ -65,9 +65,6 @@ func Load(path string) (*ConsoleConfig, error) {
 	if cfg.ConfigPath == "" {
 		cfg.ConfigPath = "/usr/local/etc/pipelock.yaml"
 	}
-	if token := os.Getenv("PIPELOCK_KILLSWITCH_API_TOKEN"); token != "" {
-		cfg.Pipelock.APIToken = token
-	}
 
 	if cfg.SessionSecret == "" {
 		b := make([]byte, 32)
@@ -79,12 +76,19 @@ func Load(path string) (*ConsoleConfig, error) {
 			return nil, fmt.Errorf("persisting session secret: %w", err)
 		}
 	}
+
+	// Apply the env-token override AFTER any Save so it is honored at runtime
+	// only and never persisted to disk.
+	if token := os.Getenv("PIPELOCK_KILLSWITCH_API_TOKEN"); token != "" {
+		cfg.Pipelock.APIToken = token
+	}
+
 	return cfg, nil
 }
 
 // Save writes the console config back to disk atomically (temp + rename).
 func Save(path string, cfg *ConsoleConfig) error {
-	out, err := yaml.Marshal(cfg) //nolint:gosec // G117: session_secret is intentionally persisted to disk so it survives restarts
+	out, err := yaml.Marshal(cfg) //nolint:gosec // G117: ConsoleConfig is the on-disk config schema; all fields (incl. session_secret, api_token) are intentionally serialized.
 	if err != nil {
 		return fmt.Errorf("marshaling console config: %w", err)
 	}
@@ -97,18 +101,18 @@ func Save(path string, cfg *ConsoleConfig) error {
 	defer func() { _ = os.Remove(tmpName) }()
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
-		return err
+		return fmt.Errorf("setting temp config permissions: %w", err)
 	}
 	if _, err := tmp.Write(out); err != nil {
 		_ = tmp.Close()
-		return err
+		return fmt.Errorf("writing temp config: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		return err
+		return fmt.Errorf("syncing temp config: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return fmt.Errorf("closing temp config: %w", err)
 	}
 	return os.Rename(tmpName, path)
 }

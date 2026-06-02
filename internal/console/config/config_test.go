@@ -6,6 +6,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestLoadGeneratesSessionSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.SessionSecret) < 32 {
+	if len(cfg.SessionSecret) != 64 {
 		t.Errorf("expected generated session_secret, got %q", cfg.SessionSecret)
 	}
 	cfg2, err := Load(path)
@@ -73,5 +74,49 @@ func TestSaveRoundTripsAdminPasswordHash(t *testing.T) {
 	}
 	if reloaded.AdminPasswordHash != "$argon2id$v=19$..." {
 		t.Errorf("hash not persisted: %q", reloaded.AdminPasswordHash)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("config file mode = %o, want 0o600", info.Mode().Perm())
+	}
+}
+
+func TestLoadEnvTokenOverrideNotPersisted(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	// Provide a session_secret so Load does not trigger a Save.
+	const existing = "config_path: /tmp/p.yaml\nsession_secret: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n"
+	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const envToken = "env-secret-token-xyz"
+	t.Setenv("PIPELOCK_KILLSWITCH_API_TOKEN", envToken)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Pipelock.APIToken != envToken {
+		t.Errorf("APIToken = %q, want env override %q", cfg.Pipelock.APIToken, envToken)
+	}
+	raw, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), envToken) {
+		t.Errorf("env token must not be persisted to disk, found in: %s", raw)
+	}
+}
+
+func TestLoadRejectsBadYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	if err := os.WriteFile(path, []byte(":\n  - [unbalanced"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Error("expected error loading invalid YAML, got nil")
 	}
 }
