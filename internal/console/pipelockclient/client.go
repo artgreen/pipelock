@@ -86,6 +86,35 @@ func (c *Client) getJSON(ctx context.Context, url string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
+// Sessions mirrors pipelock's /api/v1/sessions response.
+type Sessions struct {
+	Sessions []json.RawMessage `json:"sessions"`
+	Count    int               `json:"count"`
+}
+
+// GetSessions fetches /api/v1/sessions.
+func (c *Client) GetSessions(ctx context.Context) (*Sessions, error) {
+	var s Sessions
+	if err := c.getJSON(ctx, c.baseURL+"/api/v1/sessions", &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// Healthy reports whether pipelock's /health endpoint is reachable and 200.
+func (c *Client) Healthy(ctx context.Context) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/health", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusOK
+}
+
 // GetStats fetches /stats.
 func (c *Client) GetStats(ctx context.Context) (*Stats, error) {
 	var s Stats

@@ -10,6 +10,28 @@ import (
 	"testing"
 )
 
+func TestGetSessions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"sessions":[{"key":"s1"},{"key":"s2"}],"count":2}`))
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL})
+	got, err := c.GetSessions(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Count != 2 || len(got.Sessions) != 2 {
+		t.Errorf("unexpected sessions: %+v", got)
+	}
+}
+
+func TestGetHealthReportsDownWhenUnreachable(t *testing.T) {
+	c := New(Options{BaseURL: "http://127.0.0.1:1"}) // nothing listening
+	if c.Healthy(context.Background()) {
+		t.Error("expected Healthy=false for unreachable pipelock")
+	}
+}
+
 func TestGetStats(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/stats" {
