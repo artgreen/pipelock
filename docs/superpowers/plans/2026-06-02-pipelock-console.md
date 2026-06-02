@@ -22,6 +22,11 @@
 - **Tests:** `go test -race -count=1 ./...`. Table-driven with `t.Run`. Test files end `_test.go`.
 - **Commit cadence:** one commit per task (after its tests pass). Work on branch `feat/pipelock-console` (already created).
 
+### pipelock config facts (confirmed during implementation)
+
+- Valid `mode` values are **`strict`, `balanced`, `audit`, `permissive`** (`internal/config/schema.go`) — NOT block/warn/off. Test fixtures use these.
+- The config service's `Validate` calls `cfg.ApplyDefaults()` after the strict decode and before `ValidateWithWarnings()`, mirroring pipelock's real `Load()` so sparse configs validate exactly as pipelock would at startup.
+
 ### Console config schema (referenced throughout)
 
 `/usr/local/etc/pipelock-console.yaml`:
@@ -604,12 +609,12 @@ git commit -m "feat(console): read current pipelock config"
 func TestWriteRejectsInvalidAndChangesNothing(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/pipelock.yaml"
-	original := "mode: block\n"
+	original := "mode: audit\n"
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	svc := New(path)
-	err := svc.Write([]byte("mode: block\nbogus_field: 1\n"))
+	err := svc.Write([]byte("mode: balanced\nbogus_field: 1\n"))
 	if err == nil {
 		t.Fatal("expected write of invalid config to be rejected")
 	}
@@ -622,15 +627,15 @@ func TestWriteRejectsInvalidAndChangesNothing(t *testing.T) {
 func TestWriteAppliesValidConfigWithBackup(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/pipelock.yaml"
-	if err := os.WriteFile(path, []byte("mode: block\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("mode: audit\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	svc := New(path)
-	if err := svc.Write([]byte("mode: warn\n")); err != nil {
+	if err := svc.Write([]byte("mode: balanced\n")); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	got, _ := os.ReadFile(path)
-	if string(got) != "mode: warn\n" {
+	if string(got) != "mode: balanced\n" {
 		t.Errorf("new config not written: %q", got)
 	}
 	backups, _ := filepath.Glob(path + ".bak.*")
@@ -638,7 +643,7 @@ func TestWriteAppliesValidConfigWithBackup(t *testing.T) {
 		t.Errorf("expected exactly one backup, got %d", len(backups))
 	}
 	b, _ := os.ReadFile(backups[0])
-	if string(b) != "mode: block\n" {
+	if string(b) != "mode: audit\n" {
 		t.Errorf("backup should hold prior contents, got %q", b)
 	}
 }
@@ -2057,7 +2062,7 @@ func TestSetupReportsNeedsSetup(t *testing.T) {
 func TestConfigWriteAppliesValidYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/pipelock.yaml"
-	_ = os.WriteFile(path, []byte("mode: block\n"), 0o600)
+	_ = os.WriteFile(path, []byte("mode: audit\n"), 0o600)
 	hash, _ := auth.HashPassword("pw")
 	h := newTestServer(t, path, hash)
 
@@ -2067,7 +2072,7 @@ func TestConfigWriteAppliesValidYAML(t *testing.T) {
 	cookie := loginRec.Result().Cookies()[0]
 
 	// write
-	req := httptest.NewRequest(http.MethodPost, "/api/config", strings.NewReader("mode: warn\n"))
+	req := httptest.NewRequest(http.MethodPost, "/api/config", strings.NewReader("mode: balanced\n"))
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -2075,7 +2080,7 @@ func TestConfigWriteAppliesValidYAML(t *testing.T) {
 		t.Fatalf("write status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	got, _ := os.ReadFile(path)
-	if string(got) != "mode: warn\n" {
+	if string(got) != "mode: balanced\n" {
 		t.Errorf("config not written: %q", got)
 	}
 	_ = context.Background()
@@ -2372,7 +2377,7 @@ func TestServeBootsAndServesSetup(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := dir + "/console.yaml"
 	ppath := dir + "/pipelock.yaml"
-	_ = os.WriteFile(ppath, []byte("mode: block\n"), 0o600)
+	_ = os.WriteFile(ppath, []byte("mode: audit\n"), 0o600)
 	_ = os.WriteFile(cfgPath, []byte("listen: \"127.0.0.1:0\"\nconfig_path: \""+ppath+"\"\n"), 0o600)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -2604,7 +2609,7 @@ git commit -m "feat(console): app shell, sidebar, top bar with kill switch, API 
 
 - [ ] **Step 1:** Load current YAML via `getConfig` into a CodeMirror 6 editor (`@uiw/react-codemirror` + `@codemirror/lang-yaml`, dark theme). A "Validate" button calls `validateConfig` and shows OK / the exact error / warnings inline. "Apply" calls `writeConfig`; on success show a toast ("written — pipelock will hot-reload") and reload the buffer; on rejection show the error and change nothing.
 - [ ] **Step 2:** Show a diff (current vs edited) before Apply (a simple line diff is fine).
-- [ ] **Step 3:** Add the structured quick-toggles panel above the editor: `mode` (block/warn/off select) and `enforce` (toggle), implemented by parsing/patching just those top-level keys and writing through the same validate+write path. Keep it minimal — the editor is the source of truth for everything else.
+- [ ] **Step 3:** Add the structured quick-toggles panel above the editor: `mode` (select: strict / balanced / audit / permissive — these are pipelock's real mode values, confirmed in `internal/config/schema.go`) and `enforce` (toggle), implemented by parsing/patching just those top-level keys and writing through the same validate+write path. Keep it minimal — the editor is the source of truth for everything else.
 - [ ] **Step 4:** Build + verify.
 - [ ] **Step 5: Commit** `feat(console): config editor with validation, diff, and quick-toggles`
 
