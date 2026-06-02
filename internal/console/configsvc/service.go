@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	pcfg "github.com/luckyPipewrench/pipelock/internal/config"
 )
@@ -36,6 +37,49 @@ type ValidationResult struct {
 	OK       bool     `json:"ok"`
 	Error    string   `json:"error,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
+}
+
+// nowFunc is overridable in tests for deterministic backup names.
+var nowFunc = time.Now
+
+// Write validates raw config and, only if valid, backs up the current file and
+// atomically replaces it. Invalid input is rejected and nothing is written.
+func (s *Service) Write(raw []byte) error {
+	if res := Validate(raw); !res.OK {
+		return fmt.Errorf("config rejected: %s", res.Error)
+	}
+	current, err := os.ReadFile(filepath.Clean(s.Path))
+	if err != nil {
+		return fmt.Errorf("reading current config for backup: %w", err)
+	}
+	backup := fmt.Sprintf("%s.bak.%s", s.Path, nowFunc().UTC().Format("20060102T150405Z"))
+	if err := os.WriteFile(backup, current, 0o600); err != nil {
+		return fmt.Errorf("writing backup: %w", err)
+	}
+
+	dir := filepath.Dir(s.Path)
+	tmp, err := os.CreateTemp(dir, ".pipelock-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp config: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("setting temp config permissions: %w", err)
+	}
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("writing temp config: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("syncing temp config: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing temp config: %w", err)
+	}
+	return os.Rename(tmpName, s.Path)
 }
 
 // Validate validates raw YAML with full Load fidelity by delegating to

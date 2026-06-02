@@ -5,6 +5,7 @@ package configsvc
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -41,6 +42,53 @@ func TestServiceReadsCurrentConfig(t *testing.T) {
 	}
 	if string(got) != "mode: balanced\n" {
 		t.Errorf("Read() = %q", got)
+	}
+}
+
+func TestWriteRejectsInvalidAndChangesNothing(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/pipelock.yaml"
+	original := "mode: audit\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(path)
+	err := svc.Write([]byte("mode: balanced\nbogus_field: 1\n"))
+	if err == nil {
+		t.Fatal("expected write of invalid config to be rejected")
+	}
+	got, _ := os.ReadFile(filepath.Clean(path))
+	if string(got) != original {
+		t.Errorf("file mutated on rejected write: %q", got)
+	}
+	// fail-closed: no backup should be left behind by a rejected write
+	backups, _ := filepath.Glob(path + ".bak.*")
+	if len(backups) != 0 {
+		t.Errorf("rejected write should not create a backup, found %d", len(backups))
+	}
+}
+
+func TestWriteAppliesValidConfigWithBackup(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/pipelock.yaml"
+	if err := os.WriteFile(path, []byte("mode: audit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(path)
+	if err := svc.Write([]byte("mode: balanced\n")); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Clean(path))
+	if string(got) != "mode: balanced\n" {
+		t.Errorf("new config not written: %q", got)
+	}
+	backups, _ := filepath.Glob(path + ".bak.*")
+	if len(backups) != 1 {
+		t.Errorf("expected exactly one backup, got %d", len(backups))
+	}
+	b, _ := os.ReadFile(backups[0])
+	if string(b) != "mode: audit\n" {
+		t.Errorf("backup should hold prior contents, got %q", b)
 	}
 }
 
