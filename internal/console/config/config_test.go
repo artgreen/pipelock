@@ -110,6 +110,35 @@ func TestLoadEnvTokenOverrideNotPersisted(t *testing.T) {
 	}
 }
 
+// TestLoadEnvTokenNotPersistedOnFirstRun exercises the first-run path where
+// Load generates a session secret and Saves the config. The env-token override
+// must be applied AFTER that Save, so the token is never written to disk. This
+// regression test fails if the override block is moved before the Save.
+func TestLoadEnvTokenNotPersistedOnFirstRun(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	// No session_secret: first-run Save fires inside Load.
+	if err := os.WriteFile(path, []byte("config_path: /tmp/p.yaml\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const envToken = "env-secret-token-firstrun"
+	t.Setenv("PIPELOCK_KILLSWITCH_API_TOKEN", envToken)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Pipelock.APIToken != envToken {
+		t.Errorf("APIToken = %q, want env override %q", cfg.Pipelock.APIToken, envToken)
+	}
+	raw, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), envToken) {
+		t.Errorf("env token must not be persisted to disk on first run, found in: %s", raw)
+	}
+}
+
 func TestLoadRejectsBadYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
