@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidateAcceptsGoodConfig(t *testing.T) {
@@ -74,6 +75,8 @@ func TestWriteAppliesValidConfigWithBackup(t *testing.T) {
 	if err := os.WriteFile(path, []byte("mode: audit\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	nowFunc = func() time.Time { return time.Date(2026, 1, 2, 15, 4, 5, 0, time.UTC) }
+	t.Cleanup(func() { nowFunc = time.Now })
 	svc := New(path)
 	if err := svc.Write([]byte("mode: balanced\n")); err != nil {
 		t.Fatalf("Write: %v", err)
@@ -86,7 +89,10 @@ func TestWriteAppliesValidConfigWithBackup(t *testing.T) {
 	if len(backups) != 1 {
 		t.Errorf("expected exactly one backup, got %d", len(backups))
 	}
-	b, _ := os.ReadFile(backups[0])
+	if !strings.HasSuffix(backups[0], "20260102T150405Z") {
+		t.Errorf("backup name should carry the formatted timestamp, got %q", backups[0])
+	}
+	b, _ := os.ReadFile(filepath.Clean(backups[0]))
 	if string(b) != "mode: audit\n" {
 		t.Errorf("backup should hold prior contents, got %q", b)
 	}

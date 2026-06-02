@@ -58,6 +58,9 @@ func (s *Service) Write(raw []byte) error {
 	}
 
 	dir := filepath.Dir(s.Path)
+	// Atomic replace with an explicit fsync for durability. We don't reuse
+	// internal/atomicfile.Write because it doesn't fsync, and this is the
+	// security-critical pipelock config.
 	tmp, err := os.CreateTemp(dir, ".pipelock-*.tmp")
 	if err != nil {
 		return fmt.Errorf("creating temp config: %w", err)
@@ -79,7 +82,10 @@ func (s *Service) Write(raw []byte) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("closing temp config: %w", err)
 	}
-	return os.Rename(tmpName, s.Path)
+	if err := os.Rename(tmpName, s.Path); err != nil {
+		return fmt.Errorf("renaming temp config into place: %w", err)
+	}
+	return nil
 }
 
 // Validate validates raw YAML with full Load fidelity by delegating to
