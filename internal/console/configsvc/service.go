@@ -7,12 +7,7 @@
 package configsvc
 
 import (
-	"bytes"
-	"errors"
-	"io"
-
 	pcfg "github.com/luckyPipewrench/pipelock/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // ValidationResult reports whether submitted YAML is a valid pipelock config.
@@ -22,19 +17,13 @@ type ValidationResult struct {
 	Warnings []string `json:"warnings,omitempty"`
 }
 
-// Validate parses raw YAML with the same strict decoder pipelock uses
-// (unknown fields rejected), applies config defaults so that sparse configs
-// are treated the same way pipelock treats them at startup, and then runs
-// the real validator.
+// Validate validates raw YAML with full Load fidelity by delegating to
+// config.ValidateBytes: strict decode (unknown fields rejected),
+// single-document enforcement, security-boolean fail-closed defaults, normal
+// defaults, then full validation. Delegating keeps the config package as the
+// single source of truth so console validation cannot drift from startup.
 func Validate(raw []byte) ValidationResult {
-	cfg := &pcfg.Config{}
-	dec := yaml.NewDecoder(bytes.NewReader(raw))
-	dec.KnownFields(true)
-	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return ValidationResult{OK: false, Error: err.Error()}
-	}
-	cfg.ApplyDefaults()
-	warns, err := cfg.ValidateWithWarnings()
+	warns, err := pcfg.ValidateBytes(raw)
 	res := ValidationResult{OK: err == nil}
 	if err != nil {
 		res.Error = err.Error()

@@ -26,3 +26,18 @@ func TestValidateRejectsUnknownField(t *testing.T) {
 		t.Errorf("error should name the offending field, got: %s", res.Error)
 	}
 }
+
+// TestValidateRejectsFailOpenSecurityDefault is the regression for the
+// fail-open drift bug: response_scanning is force-enabled (fail-closed) when
+// `enabled` is omitted, so an invalid action must be rejected. A path that
+// skipped applySecurityDefaults would wrongly report this config OK.
+func TestValidateRejectsFailOpenSecurityDefault(t *testing.T) {
+	bad := "mode: balanced\nresponse_scanning:\n  action: invalid_action\n"
+	res := Validate([]byte(bad))
+	if res.OK {
+		t.Fatal("expected omitted-enabled response_scanning with bad action to be rejected (fail-closed)")
+	}
+	if !strings.Contains(strings.ToLower(res.Error), "response_scanning") {
+		t.Errorf("error should name response_scanning, got: %s", res.Error)
+	}
+}
