@@ -59,8 +59,30 @@
       "path": "suppress",
       "key": "suppress",
       "label": "Suppress",
-      "type": "opaque",
-      "advanced_only": true
+      "type": "objlist",
+      "element": [
+        {
+          "path": "rule",
+          "key": "rule",
+          "label": "Rule",
+          "type": "string",
+          "help": "pattern name (required)"
+        },
+        {
+          "path": "path",
+          "key": "path",
+          "label": "Path",
+          "type": "string",
+          "help": "exact path, glob, or URL pattern (required)"
+        },
+        {
+          "path": "reason",
+          "key": "reason",
+          "label": "Reason",
+          "type": "string",
+          "help": "human-readable justification"
+        }
+      ]
     },
     {
       "path": "fetch_proxy",
@@ -339,8 +361,56 @@
           "path": "dlp.patterns",
           "key": "patterns",
           "label": "Patterns",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "regex",
+              "key": "regex",
+              "label": "Regex",
+              "type": "string"
+            },
+            {
+              "path": "severity",
+              "key": "severity",
+              "label": "Severity",
+              "type": "enum",
+              "help": "critical, high, medium, low",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "validator",
+              "key": "validator",
+              "label": "Validator",
+              "type": "string",
+              "help": "post-match checksum: \"luhn\", \"mod97\", \"aba\""
+            },
+            {
+              "path": "exempt_domains",
+              "key": "exempt_domains",
+              "label": "Exempt Domains",
+              "type": "list",
+              "help": "domains where this pattern is not enforced"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "reserved - not yet implemented; rejected at validation"
+            }
+          ]
         },
         {
           "path": "dlp.action",
@@ -400,8 +470,21 @@
           "path": "response_scanning.patterns",
           "key": "patterns",
           "label": "Patterns",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "regex",
+              "key": "regex",
+              "label": "Regex",
+              "type": "string"
+            }
+          ]
         },
         {
           "path": "response_scanning.exempt_domains",
@@ -532,15 +615,86 @@
           "path": "mcp_tool_policy.rules",
           "key": "rules",
           "label": "Rules",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "tool_pattern",
+              "key": "tool_pattern",
+              "label": "Tool Pattern",
+              "type": "string",
+              "help": "regex matching tool name"
+            },
+            {
+              "path": "arg_pattern",
+              "key": "arg_pattern",
+              "label": "Arg Pattern",
+              "type": "string",
+              "help": "regex matching argument values (optional)"
+            },
+            {
+              "path": "arg_key",
+              "key": "arg_key",
+              "label": "Arg Key",
+              "type": "string",
+              "help": "regex scoping arg_pattern to specific argument keys (optional)"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "per-rule override: warn, block, redirect (optional)"
+            },
+            {
+              "path": "redirect_profile",
+              "key": "redirect_profile",
+              "label": "Redirect Profile",
+              "type": "string",
+              "help": "key in redirect_profiles (required when action=redirect)"
+            }
+          ]
         },
         {
           "path": "mcp_tool_policy.redirect_profiles",
           "key": "redirect_profiles",
           "label": "Redirect Profiles",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objmap",
+          "element": [
+            {
+              "path": "exec",
+              "key": "exec",
+              "label": "Exec",
+              "type": "list",
+              "help": "command + args (e.g. [\"/proc/self/exe\", \"internal-redirect\", \"fetch-proxy\"])"
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string",
+              "help": "human-readable justification for redirect"
+            },
+            {
+              "path": "preserve_argv",
+              "key": "preserve_argv",
+              "label": "Preserve Argv",
+              "type": "bool",
+              "help": "pass original tool arguments to handler"
+            },
+            {
+              "path": "match_abs_path",
+              "key": "match_abs_path",
+              "label": "Match Abs Path",
+              "type": "bool",
+              "help": "require absolute path in exec[0]"
+            }
+          ]
         },
         {
           "path": "mcp_tool_policy.quarantine_dir",
@@ -761,17 +915,17 @@
                   "path": "adaptive_enforcement.levels.elevated.upgrade_warn",
                   "key": "upgrade_warn",
                   "label": "Upgrade Warn",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.elevated.upgrade_ask",
                   "key": "upgrade_ask",
                   "label": "Upgrade Ask",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.elevated.block_all",
@@ -792,17 +946,17 @@
                   "path": "adaptive_enforcement.levels.high.upgrade_warn",
                   "key": "upgrade_warn",
                   "label": "Upgrade Warn",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.high.upgrade_ask",
                   "key": "upgrade_ask",
                   "label": "Upgrade Ask",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.high.block_all",
@@ -823,17 +977,17 @@
                   "path": "adaptive_enforcement.levels.critical.upgrade_warn",
                   "key": "upgrade_warn",
                   "label": "Upgrade Warn",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.critical.upgrade_ask",
                   "key": "upgrade_ask",
                   "label": "Upgrade Ask",
-                  "type": "opaque",
+                  "type": "string",
                   "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
-                  "advanced_only": true
+                  "default": null
                 },
                 {
                   "path": "adaptive_enforcement.levels.critical.block_all",
@@ -994,16 +1148,183 @@
           "path": "request_policy.rules",
           "key": "rules",
           "label": "Rules",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string",
+              "help": "bounded, metric-label-safe identifier"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "block | warn"
+            },
+            {
+              "path": "shadow",
+              "key": "shadow",
+              "label": "Shadow",
+              "type": "bool",
+              "help": "log the would-be action, forward anyway"
+            },
+            {
+              "path": "route",
+              "key": "route",
+              "label": "Route",
+              "type": "group",
+              "children": [
+                {
+                  "path": "route.hosts",
+                  "key": "hosts",
+                  "label": "Hosts",
+                  "type": "list",
+                  "help": "exact host or *.suffix wildcard"
+                },
+                {
+                  "path": "route.methods",
+                  "key": "methods",
+                  "label": "Methods",
+                  "type": "list",
+                  "help": "HTTP verbs; normalized to uppercase"
+                },
+                {
+                  "path": "route.path_prefixes",
+                  "key": "path_prefixes",
+                  "label": "Path Prefixes",
+                  "type": "list",
+                  "help": "literal prefixes of the normalized path"
+                },
+                {
+                  "path": "route.path_patterns",
+                  "key": "path_patterns",
+                  "label": "Path Patterns",
+                  "type": "list",
+                  "help": "RE2 patterns against the normalized path"
+                },
+                {
+                  "path": "route.content_types",
+                  "key": "content_types",
+                  "label": "Content Types",
+                  "type": "list",
+                  "help": "media types (parameters stripped)"
+                }
+              ]
+            },
+            {
+              "path": "graphql",
+              "key": "graphql",
+              "label": "Graphql",
+              "type": "opaque",
+              "help": "optional GraphQL operation predicate",
+              "advanced_only": true
+            },
+            {
+              "path": "discriminator",
+              "key": "discriminator",
+              "label": "Discriminator",
+              "type": "opaque",
+              "help": "optional JSON discriminator-field predicate",
+              "advanced_only": true
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string",
+              "help": "operator-facing explanation (never logged with content)"
+            }
+          ]
         },
         {
           "path": "request_policy.batch",
           "key": "batch",
           "label": "Batch",
-          "type": "opaque",
+          "type": "objlist",
           "help": "JSON batch endpoints whose sub-requests are evaluated recursively",
-          "advanced_only": true
+          "element": [
+            {
+              "path": "route",
+              "key": "route",
+              "label": "Route",
+              "type": "group",
+              "children": [
+                {
+                  "path": "route.hosts",
+                  "key": "hosts",
+                  "label": "Hosts",
+                  "type": "list",
+                  "help": "exact host or *.suffix wildcard"
+                },
+                {
+                  "path": "route.methods",
+                  "key": "methods",
+                  "label": "Methods",
+                  "type": "list",
+                  "help": "HTTP verbs; normalized to uppercase"
+                },
+                {
+                  "path": "route.path_prefixes",
+                  "key": "path_prefixes",
+                  "label": "Path Prefixes",
+                  "type": "list",
+                  "help": "literal prefixes of the normalized path"
+                },
+                {
+                  "path": "route.path_patterns",
+                  "key": "path_patterns",
+                  "label": "Path Patterns",
+                  "type": "list",
+                  "help": "RE2 patterns against the normalized path"
+                },
+                {
+                  "path": "route.content_types",
+                  "key": "content_types",
+                  "label": "Content Types",
+                  "type": "list",
+                  "help": "media types (parameters stripped)"
+                }
+              ]
+            },
+            {
+              "path": "requests_field",
+              "key": "requests_field",
+              "label": "Requests Field",
+              "type": "string",
+              "help": "JSON field holding the sub-request array; default \"requests\""
+            },
+            {
+              "path": "method_field",
+              "key": "method_field",
+              "label": "Method Field",
+              "type": "string",
+              "help": "sub-request method field; default \"method\""
+            },
+            {
+              "path": "url_field",
+              "key": "url_field",
+              "label": "Url Field",
+              "type": "string",
+              "help": "sub-request URL/path field; default \"url\""
+            },
+            {
+              "path": "body_field",
+              "key": "body_field",
+              "label": "Body Field",
+              "type": "string",
+              "help": "sub-request body field; default \"body\""
+            },
+            {
+              "path": "max_sub_requests",
+              "key": "max_sub_requests",
+              "label": "Max Sub Requests",
+              "type": "int",
+              "help": "cap on sub-requests evaluated per batch; default 64"
+            }
+          ]
         }
       ]
     },
@@ -1145,9 +1466,9 @@
           "path": "sentry.sample_rate",
           "key": "sample_rate",
           "label": "Sample Rate",
-          "type": "opaque",
+          "type": "float",
           "help": "nil = 1.0; 0.0-1.0",
-          "advanced_only": true
+          "default": null
         },
         {
           "path": "sentry.debug",
@@ -1394,9 +1715,9 @@
           "path": "tool_chain_detection.max_gap",
           "key": "max_gap",
           "label": "Max Gap",
-          "type": "opaque",
+          "type": "int",
           "help": "max innocent calls between steps (nil = default 3)",
-          "advanced_only": true
+          "default": null
         },
         {
           "path": "tool_chain_detection.tool_categories",
@@ -1418,8 +1739,43 @@
           "path": "tool_chain_detection.custom_patterns",
           "key": "custom_patterns",
           "label": "Custom Patterns",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "sequence",
+              "key": "sequence",
+              "label": "Sequence",
+              "type": "list",
+              "help": "category names"
+            },
+            {
+              "path": "severity",
+              "key": "severity",
+              "label": "Severity",
+              "type": "enum",
+              "help": "medium, high, critical",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "optional per-pattern override"
+            }
+          ]
         },
         {
           "path": "tool_chain_detection.sensitivity_labels",
@@ -1664,9 +2020,16 @@
           "path": "reverse_proxy.allowed_paths",
           "key": "allowed_paths",
           "label": "Allowed Paths",
-          "type": "opaque",
+          "type": "objlist",
           "help": "AllowedPaths constrains which paths the listener accepts. v1 supports exact-match only. The matcher compares against the canonical decoded request path; raw paths containing encoded traversal (%2e%2e/), encoded slash/backslash (%2f, %5c), semicolon path params, or canonicalization changes are rejected at request time.",
-          "advanced_only": true
+          "element": [
+            {
+              "path": "exact",
+              "key": "exact",
+              "label": "Exact",
+              "type": "string"
+            }
+          ]
         },
         {
           "path": "reverse_proxy.trusted_upstream",
@@ -2072,8 +2435,28 @@
           "path": "rules.trusted_keys",
           "key": "trusted_keys",
           "label": "Trusted Keys",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "public_key",
+              "key": "public_key",
+              "label": "Public Key",
+              "type": "string",
+              "help": "64 lowercase hex chars"
+            },
+            {
+              "path": "tier",
+              "key": "tier",
+              "label": "Tier",
+              "type": "string"
+            }
+          ]
         }
       ]
     },
@@ -2248,9 +2631,9 @@
           "path": "flight_recorder.file_mode",
           "key": "file_mode",
           "label": "File Mode",
-          "type": "opaque",
+          "type": "string",
           "help": "evidence file permissions: 0600, 0640, or 0660 (default 0600)",
-          "advanced_only": true
+          "default": 0
         },
         {
           "path": "flight_recorder.raw_escrow",
@@ -2925,8 +3308,46 @@
           "path": "taint.trust_overrides",
           "key": "trust_overrides",
           "label": "Trust Overrides",
-          "type": "opaque",
-          "advanced_only": true
+          "type": "objlist",
+          "element": [
+            {
+              "path": "scope",
+              "key": "scope",
+              "label": "Scope",
+              "type": "string"
+            },
+            {
+              "path": "source_match",
+              "key": "source_match",
+              "label": "Source Match",
+              "type": "string"
+            },
+            {
+              "path": "action_match",
+              "key": "action_match",
+              "label": "Action Match",
+              "type": "string"
+            },
+            {
+              "path": "expires_at",
+              "key": "expires_at",
+              "label": "Expires At",
+              "type": "opaque",
+              "advanced_only": true
+            },
+            {
+              "path": "granted_by",
+              "key": "granted_by",
+              "label": "Granted By",
+              "type": "string"
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string"
+            }
+          ]
         },
         {
           "path": "taint.policy",
@@ -3053,8 +3474,34 @@
               "path": "mediation_envelope.verify_inbound.trust_list",
               "key": "trust_list",
               "label": "Trust List",
-              "type": "opaque",
-              "advanced_only": true
+              "type": "objlist",
+              "element": [
+                {
+                  "path": "key_id",
+                  "key": "key_id",
+                  "label": "Key Id",
+                  "type": "string"
+                },
+                {
+                  "path": "public_key",
+                  "key": "public_key",
+                  "label": "Public Key",
+                  "type": "string"
+                },
+                {
+                  "path": "well_known_url",
+                  "key": "well_known_url",
+                  "label": "Well Known Url",
+                  "type": "string"
+                },
+                {
+                  "path": "trust_domains",
+                  "key": "trust_domains",
+                  "label": "Trust Domains",
+                  "type": "list",
+                  "help": "TrustDomains, when non-empty, restricts which actor trust domains a signed envelope may claim under this key_id. Empty means \"any trust domain\" - the v2.4 migration default that lets a single partner key sign for any actor. Production deployments should pin each key to the specific federation peer's trust domain(s) so a compromised partner cannot impersonate another."
+                }
+              ]
             },
             {
               "path": "mediation_envelope.verify_inbound.replay_cache",
@@ -3488,8 +3935,209 @@
       "path": "agents",
       "key": "agents",
       "label": "Agents",
-      "type": "opaque",
-      "advanced_only": true
+      "type": "objmap",
+      "element": [
+        {
+          "path": "listeners",
+          "key": "listeners",
+          "label": "Listeners",
+          "type": "list"
+        },
+        {
+          "path": "source_cidrs",
+          "key": "source_cidrs",
+          "label": "Source Cidrs",
+          "type": "list"
+        },
+        {
+          "path": "mode",
+          "key": "mode",
+          "label": "Mode",
+          "type": "enum",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "audit"
+          ]
+        },
+        {
+          "path": "enforce",
+          "key": "enforce",
+          "label": "Enforce",
+          "type": "tristate"
+        },
+        {
+          "path": "api_allowlist",
+          "key": "api_allowlist",
+          "label": "Api Allowlist",
+          "type": "list",
+          "default": [
+            "*.anthropic.com",
+            "*.openai.com",
+            "api.telegram.org",
+            "*.discord.com",
+            "gateway.discord.gg",
+            "*.slack.com",
+            "github.com",
+            "*.github.com",
+            "*.githubusercontent.com",
+            "registry.npmjs.org"
+          ]
+        },
+        {
+          "path": "dlp",
+          "key": "dlp",
+          "label": "Dlp",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "rate_limit",
+          "key": "rate_limit",
+          "label": "Rate Limit",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "session_profiling",
+          "key": "session_profiling",
+          "label": "Session Profiling",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "mcp_tool_policy",
+          "key": "mcp_tool_policy",
+          "label": "Mcp Tool Policy",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "budget",
+          "key": "budget",
+          "label": "Budget",
+          "type": "group",
+          "children": [
+            {
+              "path": "budget.max_requests_per_session",
+              "key": "max_requests_per_session",
+              "label": "Max Requests Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_bytes_per_session",
+              "key": "max_bytes_per_session",
+              "label": "Max Bytes Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_unique_domains_per_session",
+              "key": "max_unique_domains_per_session",
+              "label": "Max Unique Domains Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.window_minutes",
+              "key": "window_minutes",
+              "label": "Window Minutes",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_tool_calls_per_session",
+              "key": "max_tool_calls_per_session",
+              "label": "Max Tool Calls Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_concurrent_tool_calls",
+              "key": "max_concurrent_tool_calls",
+              "label": "Max Concurrent Tool Calls",
+              "type": "int",
+              "help": "parallel in-flight limit (default 10)"
+            },
+            {
+              "path": "budget.max_wall_clock_minutes",
+              "key": "max_wall_clock_minutes",
+              "label": "Max Wall Clock Minutes",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_retries_per_tool",
+              "key": "max_retries_per_tool",
+              "label": "Max Retries Per Tool",
+              "type": "int",
+              "help": "same tool+args (default 5)"
+            },
+            {
+              "path": "budget.max_retries_per_endpoint",
+              "key": "max_retries_per_endpoint",
+              "label": "Max Retries Per Endpoint",
+              "type": "int",
+              "help": "same domain+path (default 20)"
+            },
+            {
+              "path": "budget.loop_detection_window",
+              "key": "loop_detection_window",
+              "label": "Loop Detection Window",
+              "type": "int",
+              "help": "tool calls to track (default 20)"
+            },
+            {
+              "path": "budget.fan_out_limit",
+              "key": "fan_out_limit",
+              "label": "Fan Out Limit",
+              "type": "int",
+              "help": "max unique endpoints in window (default 50)"
+            },
+            {
+              "path": "budget.fan_out_window_seconds",
+              "key": "fan_out_window_seconds",
+              "label": "Fan Out Window Seconds",
+              "type": "int",
+              "help": "window for fan-out detection (default 60)"
+            },
+            {
+              "path": "budget.cost_multipliers",
+              "key": "cost_multipliers",
+              "label": "Cost Multipliers",
+              "type": "opaque",
+              "help": "optional domain -\u003e cost weight",
+              "advanced_only": true
+            },
+            {
+              "path": "budget.dow_action",
+              "key": "dow_action",
+              "label": "Dow Action",
+              "type": "string",
+              "help": "\"block\" or \"warn\" (default \"block\")"
+            }
+          ]
+        },
+        {
+          "path": "allowed_addresses",
+          "key": "allowed_addresses",
+          "label": "Allowed Addresses",
+          "type": "list",
+          "help": "per-agent crypto address allowlist (enterprise, additive with global)"
+        },
+        {
+          "path": "sandbox",
+          "key": "sandbox",
+          "label": "Sandbox",
+          "type": "opaque",
+          "help": "per-agent sandbox overrides (Pro, gated by FeatureAgents)",
+          "advanced_only": true
+        },
+        {
+          "path": "trusted_domains",
+          "key": "trusted_domains",
+          "label": "Trusted Domains",
+          "type": "list",
+          "help": "per-agent SSRF-exempt domains (replace, not merge)",
+          "default": null
+        }
+      ]
     },
     {
       "path": "default_agent_identity",

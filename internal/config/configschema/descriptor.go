@@ -31,6 +31,8 @@ const (
 	TypeList     FieldType = "list"
 	TypeMap      FieldType = "map"
 	TypeOpaque   FieldType = "opaque"
+	TypeObjList  FieldType = "objlist" // []Struct: list of records, each a sub-form of Element
+	TypeObjMap   FieldType = "objmap"  // map[string]Struct: keyed records, each a sub-form of Element
 )
 
 // Field is one node of the schema tree.
@@ -45,6 +47,10 @@ type Field struct {
 	Secret       bool      `json:"secret,omitempty"`
 	AdvancedOnly bool      `json:"advanced_only,omitempty"`
 	Children     []Field   `json:"children,omitempty"`
+	// Element is the record sub-schema for objlist/objmap fields. Its field
+	// paths are RELATIVE to the element root (a bare key, or key.subkey for
+	// nested fields), NOT prefixed by the outer config path.
+	Element []Field `json:"element,omitempty"`
 }
 
 // Descriptor is the whole schema tree (top-level sections).

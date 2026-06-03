@@ -79,7 +79,9 @@ func enumValues(path, key string) []string {
 
 // advancedTypes are bare go type names whose custom YAML unmarshalers mean the
 // generator cannot offer a safe structured editor; fields of these types are
-// marked AdvancedOnly.
+// marked AdvancedOnly. classify also consults this set so a slice or map of one
+// of these types (e.g. []WatchPath) is NOT expanded into an objlist/objmap
+// element sub-schema and stays opaque.
 var advancedTypes = map[string]bool{
 	"WatchPath":            true,
 	"LearnLockEnvironment": true,
@@ -95,7 +97,8 @@ type fieldInfo struct {
 
 // classify maps a rendered go type string to a FieldType. The enum upgrade is
 // applied by the field walker (by yaml key), not here: classify returns
-// TypeString for plain strings.
+// TypeString for plain strings (and for *string, so a pointer-string field at
+// an enum path still upgrades to enum).
 func classify(goType string, structNames map[string]bool) configschema.FieldType {
 	switch goType {
 	case "*bool":
@@ -113,6 +116,31 @@ func classify(goType string, structNames map[string]bool) configschema.FieldType
 		return configschema.TypeList
 	case "map[string]string":
 		return configschema.TypeMap
+	// Pointer-to-scalar: the optional/nullable form of a scalar. A *string
+	// falls through to TypeString so the enum-by-path upgrade in the walker
+	// still applies (e.g. taint.policy is *string at an enum path).
+	case "*string":
+		return configschema.TypeString
+	case "*int", "*int8", "*int16", "*int32", "*int64",
+		"*uint", "*uint8", "*uint16", "*uint32", "*uint64", "*uintptr":
+		return configschema.TypeInt
+	case "*float32", "*float64":
+		return configschema.TypeFloat
+	// os.FileMode is a cross-package scalar (a uint32 alias) edited as a
+	// string (e.g. "0o600"); special-case it before the qualified-type
+	// opaque fallback below.
+	case "os.FileMode":
+		return configschema.TypeString
+	}
+	// []X / map[string]X where X is a LOCAL struct (bare name in structNames)
+	// and not a custom-unmarshaler type expands into an objlist/objmap whose
+	// Element is X's field subtree. Cross-package element types (X contains a
+	// ".") and custom-unmarshaler types are excluded — they stay opaque.
+	if elem, ok := localStructElement(goType, "[]"); ok && structNames[elem] && !advancedTypes[elem] {
+		return configschema.TypeObjList
+	}
+	if elem, ok := localStructElement(goType, "map[string]"); ok && structNames[elem] && !advancedTypes[elem] {
+		return configschema.TypeObjMap
 	}
 	// A qualified type (pkg.Name, []pkg.Name, ...) is never a locally-declared
 	// struct, so it must never be treated as a group — even when its selector
@@ -127,6 +155,23 @@ func classify(goType string, structNames map[string]bool) configschema.FieldType
 	// []SomeStruct, map[string]SomeStruct, custom/unmarshaler types,
 	// cross-package types, etc.
 	return configschema.TypeOpaque
+}
+
+// localStructElement returns the bare element type of a slice or map type with
+// the given prefix, plus true, when goType is exactly prefix+ElementName and
+// ElementName is a bare (unqualified) identifier. For "map[string]" the prefix
+// already encodes the string-keyed form; other map key types won't match.
+func localStructElement(goType, prefix string) (string, bool) {
+	if !strings.HasPrefix(goType, prefix) {
+		return "", false
+	}
+	elem := goType[len(prefix):]
+	// Reject nested decoration ([]X, *X, map[...]) and qualified types: only a
+	// bare local struct name expands.
+	if elem == "" || strings.ContainsAny(elem, ".[]*") {
+		return "", false
+	}
+	return elem, true
 }
 
 // isSecretKey reports whether a yaml key names a secret-bearing field whose
@@ -371,6 +416,17 @@ func (b *builder) buildFields(typeName, parentPath string, depth int) []configsc
 		switch ft {
 		case configschema.TypeGroup:
 			field.Children = b.buildFields(fi.goType, path, depth+1)
+		case configschema.TypeObjList, configschema.TypeObjMap:
+			// One leaf for the whole list/map; Element is a separate
+			// sub-schema with paths RELATIVE to the element root (parentPath
+			// "" so element field paths are bare keys), so it is NOT added to
+			// the top-level FieldCount.
+			b.leaves++
+			elem, _ := localStructElement(fi.goType, "[]")
+			if ft == configschema.TypeObjMap {
+				elem, _ = localStructElement(fi.goType, "map[string]")
+			}
+			field.Element = b.buildElement(elem, depth+1)
 		case configschema.TypeOpaque:
 			b.leaves++
 		case configschema.TypeTriState:
@@ -393,6 +449,19 @@ func (b *builder) buildFields(typeName, parentPath string, depth int) []configsc
 		out = append(out, field)
 	}
 	return out
+}
+
+// buildElement builds the record sub-schema for an objlist/objmap whose element
+// is the local struct elemType. Element field paths are RELATIVE to the element
+// root (parentPath ""), and element fields are NOT counted toward the top-level
+// FieldCount: the surrounding leaf counter is saved and restored so the whole
+// list/map remains exactly one leaf. Recursion (an element that itself contains
+// groups/lists/objlists) is bounded by the shared maxDepth guard in buildFields.
+func (b *builder) buildElement(elemType string, depth int) []configschema.Field {
+	saved := b.leaves
+	fields := b.buildFields(elemType, "", depth)
+	b.leaves = saved
+	return fields
 }
 
 // bareType strips pointer/slice/map decoration to the underlying type name so
