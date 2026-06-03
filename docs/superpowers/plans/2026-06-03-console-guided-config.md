@@ -352,14 +352,15 @@ In `internal/console/server/server.go`, add the import `"github.com/luckyPipewre
 ```go
 mux.Handle("POST /api/config/unblock-proposal", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Target string `json:"target"`
-		Reason string `json:"reason"`
+		Target         string `json:"target"`
+		Reason         string `json:"reason"`
+		MatchedPattern string `json:"matched_pattern"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	prop, err := configintents.ProposeUnblock(body.Target, body.Reason)
+	prop, err := configintents.ProposeUnblock(body.Target, body.Reason, body.MatchedPattern)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
@@ -653,13 +654,15 @@ export interface UnblockProposal {
 Add near the other endpoint wrappers (after `applyConfig`):
 ```ts
 // proposeUnblock asks the backend for the minimal config change that allows a
-// blocked destination. Returns the proposal; 422 (unsupported reason) throws
-// ApiError with the reason in the body.
-export async function proposeUnblock(target: string, reason: string): Promise<UnblockProposal> {
+// blocked destination. matchedPattern is the blocklist pattern that matched (if
+// known, e.g. from the event) so blocklist removals target the right entry.
+// Returns the proposal; 422 (unsupported reason) throws ApiError with the reason
+// in the body.
+export async function proposeUnblock(target: string, reason: string, matchedPattern = ''): Promise<UnblockProposal> {
   const res = await request('/api/config/unblock-proposal', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target, reason }),
+    body: JSON.stringify({ target, reason, matched_pattern: matchedPattern }),
   })
   return asJSON<UnblockProposal>(res)
 }
@@ -788,13 +791,14 @@ const REASONS = ['ssrf_private_ip', 'ssrf_metadata', 'domain_blocklist'] as cons
 interface Props {
   target: string
   reason?: string
+  matchedPattern?: string // blocklist pattern that matched, if known (from event)
   buffer: string
   onCancel: () => void
   // Applies the patched buffer through the parent's validate->apply path.
   onApply: (patched: string, summary: string) => Promise<void>
 }
 
-export default function UnblockDialog({ target, reason, buffer, onCancel, onApply }: Props) {
+export default function UnblockDialog({ target, reason, matchedPattern, buffer, onCancel, onApply }: Props) {
   const [tgt, setTgt] = useState(target)
   const [rsn, setRsn] = useState(reason ?? '')
   const [prop, setProp] = useState<UnblockProposal | null>(null)
@@ -807,7 +811,7 @@ export default function UnblockDialog({ target, reason, buffer, onCancel, onAppl
     setErr(null)
     setProp(null)
     try {
-      setProp(await proposeUnblock(tgt.trim(), rsn))
+      setProp(await proposeUnblock(tgt.trim(), rsn, matchedPattern ?? ''))
     } catch (e) {
       setErr(e instanceof ApiError ? e.body || e.message : e instanceof Error ? e.message : 'failed')
     } finally {
@@ -1011,7 +1015,7 @@ import { useState } from 'react'
 import { applyConfig, getConfig, validateConfig } from '../api'
 import UnblockDialog from './config/UnblockDialog'
 // ...
-const [unblock, setUnblock] = useState<{ target: string; reason: string } | null>(null)
+const [unblock, setUnblock] = useState<{ target: string; reason: string; matchedPattern: string } | null>(null)
 
 // helper passed to UnblockDialog.onApply
 const applyFromEvents = async (patched: string) => {
@@ -1023,24 +1027,24 @@ const applyFromEvents = async (patched: string) => {
 Render an "Allow this…" button on rows whose severity indicates a block (e.g. `severity === 'critical'` or a block `type`); prefer showing it whenever `fields.target` is present:
 ```tsx
 {isBlockish(ev) && (ev.fields.target as string) && (
-  <button type="button" className="btn-neon" onClick={() => setUnblock({ target: String(ev.fields.target), reason: String(ev.fields.reason ?? '') })}>
+  <button type="button" className="btn-neon" onClick={() => setUnblock({ target: String(ev.fields.target), reason: String(ev.fields.reason ?? ''), matchedPattern: String(ev.fields.matched_pattern ?? '') })}>
     allow this…
   </button>
 )}
 ```
 Render the dialog once, loading the current buffer lazily:
 ```tsx
-{unblock && <UnblockGate target={unblock.target} reason={unblock.reason} onClose={() => setUnblock(null)} />}
+{unblock && <UnblockGate target={unblock.target} reason={unblock.reason} matchedPattern={unblock.matchedPattern} onClose={() => setUnblock(null)} />}
 ```
 Where `UnblockGate` is a tiny wrapper in the same file that loads the config buffer then renders `UnblockDialog`:
 ```tsx
-function UnblockGate({ target, reason, onClose }: { target: string; reason: string; onClose: () => void }) {
+function UnblockGate({ target, reason, matchedPattern, onClose }: { target: string; reason: string; matchedPattern: string; onClose: () => void }) {
   const [buf, setBuf] = useState<string | null>(null)
   useEffect(() => { void getConfig().then(setBuf).catch(() => setBuf('')) }, [])
   if (buf === null) return null
   return (
     <UnblockDialog
-      target={target} reason={reason} buffer={buf}
+      target={target} reason={reason} matchedPattern={matchedPattern} buffer={buf}
       onCancel={onClose}
       onApply={async (patched) => {
         const v = await validateConfig(patched)

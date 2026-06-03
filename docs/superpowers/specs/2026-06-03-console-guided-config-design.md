@@ -50,6 +50,15 @@ fix per reason:
 *"add X to ssrf.ip_allowlist to allow this internal IP"*
 ([internal/scanner/core.go:682](../../../internal/scanner/core.go)).
 
+**Implementation note (reconciled during build):** the strict-mode allowlist-miss
+has no dedicated `blockreason` code (it falls through to `parse_error` in
+`reasonFromScanner`), so the one-click unblock recipe covers `ssrf_private_ip`,
+`ssrf_metadata`, and `domain_blocklist` only. `api_allowlist` is therefore edited
+through the guided **ListEditor** rather than the auto-unblock path. The Events
+"Allow this…" action is gated to exactly the three supported reasons, so it never
+offers to "allow" a DLP/secret-leak, prompt-injection, or tool-policy block (for
+which "allow" is not a safe or meaningful operation).
+
 **Minimality guardrail:** for SSRF the proposal emits a single-host `/32` (or the exact
 blocked CIDR), never a broad range. If only a broad change is possible, the proposal
 returns a `warning` that the UI must surface and the operator must explicitly confirm.
