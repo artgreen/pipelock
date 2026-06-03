@@ -132,7 +132,14 @@ func New(d Deps) http.Handler {
 		w.WriteHeader(http.StatusOK)
 	})))
 	mux.Handle("GET /api/service", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		st, _ := d.Service.Status(r.Context())
+		// systemctl is-active exits non-zero for inactive/failed units while
+		// still printing the status word; that is normal status, not an error.
+		// Only treat an empty result with an error as a real failure.
+		st, err := d.Service.Status(r.Context())
+		if st == "" && err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
 		writeJSON(w, map[string]string{"status": st})
 	})))
 	mux.Handle("POST /api/service/restart", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

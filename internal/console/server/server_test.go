@@ -40,6 +40,30 @@ func TestConfigEndpointRequiresAuth(t *testing.T) {
 	}
 }
 
+func TestProtectedRoutesRequireAuth(t *testing.T) {
+	h := newTestServer(t, "/tmp/none.yaml", "$argon2id$x")
+	cases := []struct{ method, path string }{
+		{http.MethodGet, "/api/stats"},
+		{http.MethodGet, "/api/sessions"},
+		{http.MethodGet, "/api/killswitch"},
+		{http.MethodPost, "/api/killswitch"},
+		{http.MethodGet, "/api/config"},
+		{http.MethodPost, "/api/config"},
+		{http.MethodPost, "/api/config/validate"},
+		{http.MethodGet, "/api/service"},
+		{http.MethodPost, "/api/service/restart"},
+		{http.MethodPost, "/api/logout"},
+		{http.MethodGet, "/api/events"},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), c.method, c.path, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s: got %d, want 401", c.method, c.path, rec.Code)
+		}
+	}
+}
+
 func TestSetupReportsNeedsSetup(t *testing.T) {
 	h := newTestServer(t, "/tmp/none.yaml", "")
 	rec := httptest.NewRecorder()
