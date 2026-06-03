@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { logout } from '../api'
-import { useKillSwitch } from './KillSwitchContext'
+import { useKillSwitch } from './killswitch-context'
 import ConfirmDialog from './ConfirmDialog'
-import { useToast } from './Toast'
+import { useToast } from './toast-context'
 
 const NAV = [
   { to: '/', label: 'Overview', glyph: '◉', end: true },

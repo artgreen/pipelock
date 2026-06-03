@@ -1,23 +1,10 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-
-type ToastTone = 'ok' | 'alert' | 'warn'
+import { useCallback, useState, type ReactNode } from 'react'
+import { ToastContext, type ToastTone } from './toast-context'
 
 interface Toast {
   id: number
   message: string
   tone: ToastTone
-}
-
-interface ToastCtx {
-  push: (message: string, tone?: ToastTone) => void
-}
-
-const Ctx = createContext<ToastCtx | null>(null)
-
-export function useToast(): ToastCtx {
-  const ctx = useContext(Ctx)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx
 }
 
 let nextId = 1
@@ -36,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const dismiss = (id: number) => setToasts((t) => t.filter((x) => x.id !== id))
 
   return (
-    <Ctx.Provider value={{ push }}>
+    <ToastContext.Provider value={{ push }}>
       {children}
       <div
         style={{
@@ -83,6 +70,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ))}
       </div>
       <style>{`@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-    </Ctx.Provider>
+    </ToastContext.Provider>
   )
 }

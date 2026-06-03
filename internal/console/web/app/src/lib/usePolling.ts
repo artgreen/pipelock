@@ -15,7 +15,11 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number): Po
   const [loading, setLoading] = useState(true)
   const inFlight = useRef(false)
   const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+
+  // Keep the latest fetcher in a ref so `run` stays stable across renders.
+  useEffect(() => {
+    fetcherRef.current = fetcher
+  }, [fetcher])
 
   const run = useCallback(async () => {
     if (inFlight.current) return

@@ -3,7 +3,7 @@ import { getService, restartService } from '../api'
 import ScreenHeader from '../components/ScreenHeader'
 import Banner from '../components/Banner'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toast-context'
 
 type StatusTone = 'ok' | 'alert' | 'warn' | 'muted'
 
@@ -38,6 +38,7 @@ export default function Service() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 

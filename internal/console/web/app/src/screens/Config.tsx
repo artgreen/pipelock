@@ -6,7 +6,7 @@ import { cyberCodeMirror } from '../lib/cmTheme'
 import { hasChanges, lineDiff, readTopLevelScalar, setTopLevelScalar, type DiffLine } from '../lib/yamlpatch'
 import ScreenHeader from '../components/ScreenHeader'
 import Banner from '../components/Banner'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toast-context'
 
 const MODES = ['strict', 'balanced', 'audit', 'permissive'] as const
 
@@ -37,6 +37,7 @@ export default function Config() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 
