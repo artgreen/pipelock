@@ -13,7 +13,7 @@ Goal: a **traditional, complete settings interface** — every field, logically 
 ## Decisions (locked with the user)
 
 1. **Schema-driven (generated).** The UI is generated from the Go config structs so it covers all 566 fields by construction and stays in sync. Generic-but-consistent field rendering is the accepted tradeoff for completeness.
-2. **Re-serialize on save with auto-comments.** Saving rewrites `pipelock.yaml` from the (patched) config, emitting the schema's help text as `#` comments. The operator's hand-written prose is replaced by generated descriptive comments; the raw editor remains for hand-tuning.
+2. **Surgical YAML-node patch on save, with auto-comments on new fields.** Saving parses `pipelock.yaml` into a `yaml.v3` node tree (preserving structure and existing comments), sets/inserts only the changed paths, attaches the schema's help text as a head-comment on **newly added** fields, then validates and writes. (Refined from "whole re-serialize" during planning: a full marshal would expand every omitted section to explicit zero-values and could flip section-level defaults — unsafe. Node-surgical patching preserves omitted sections and existing comments.) The raw editor remains for hand-tuning.
 3. **The generated "All Settings" view replaces the Guided view.** The three Phase-1 list editors are absorbed into the generated tree. The **unblock recipe** and the **raw Advanced editor** are kept.
 4. **Sparse-patch save model** (the security core — see below).
 
@@ -60,11 +60,13 @@ The descriptor is committed (`internal/config/configschema/descriptor.json`) and
   - `effective`: the config with `ApplyDefaults()` applied, marshaled to JSON, **with secret fields redacted** (returned as a sentinel like `"•••set"` or empty, never plaintext).
   - `present`: a set of dotted paths that are explicitly present in the file (so the UI can badge "default" vs "overridden").
 - `POST /api/config/structured` → body `{ changes: { "<path>": <value>, ... } }` (sparse). Backend:
-  1. Load the **raw** config from disk (unmarshal only — **no ApplyDefaults**; nils preserved).
-  2. Apply each changed path to the raw struct (typed set; secret sentinels mean "unchanged — keep existing").
-  3. Serialize to YAML with the descriptor's help as comments (`internal/config/configschema` serializer, or goccy/go-yaml AST with comment nodes).
-  4. `Validate()` (full fidelity) → on failure return 422 with field-mapped error.
+  1. Parse the on-disk `pipelock.yaml` into a `yaml.v3` document **node tree** (preserves structure + comments; absent sections stay absent).
+  2. For each changed path: navigate the node tree by yaml key; if the field exists, replace its value node; if absent, insert the key (creating missing parent maps), and attach the descriptor's help as a `HeadComment`. A "revert to default" change deletes the field's node. Secret sentinel values mean "unchanged — leave the existing node untouched."
+  3. Marshal the node tree back to bytes.
+  4. `ValidateBytes()` (full fidelity) → on failure return 422 with the validation message.
   5. Write via the existing atomic temp+rename path in `configsvc`.
+
+  This is server-side surgical patching over the YAML AST — the typed `Config` struct is never re-marshaled, so omitted fields/sections and unset tri-states are physically preserved.
 
 ### 3. Frontend — "All Settings" view (`screens/config/`)
 
@@ -91,9 +93,9 @@ The descriptor is committed (`internal/config/configschema/descriptor.json`) and
 
 ## Components / boundaries
 
-- `internal/config/configschema/` (new): descriptor type, the `go:generate` generator (AST walk), the commented-YAML serializer, embedded `descriptor.json`. Lives next to the schema it mirrors.
+- `internal/config/configschema/` (new): descriptor type, the `go:generate` generator (AST walk over `schema.go`), embedded `descriptor.json`, and a path→help lookup (for `HeadComment` on newly inserted nodes). Lives next to the schema it mirrors.
 - `internal/console/server/server.go`: three new authed routes.
-- `internal/console/configstructured` (new): orchestrates the structured write — `LoadRaw` (unmarshal, no defaults) → `ApplyPatch(sparse changes)` → call the `configschema` serializer → `Validate` → write via `configsvc`'s atomic path. Keeps `configsvc` focused on raw read/validate/write; the commented-YAML *serializer* itself lives in `configschema` (it needs the descriptor).
+- `internal/console/configstructured` (new): the YAML-node patcher — parse bytes → `yaml.Node`; `applyChange(doc, path, value)` (navigate/replace/insert/delete nodes, head-comment new fields); marshal back. Plus the `/values` value-map builder (yaml→map of the defaults-applied config, secret-path redaction, present-paths set from the raw file). Calls `config.ValidateBytes` + `configsvc` atomic write. Keeps `configsvc` focused on raw read/validate/write.
 - Frontend: `screens/config/AllSettings.tsx`, `screens/config/Field.tsx` (type-dispatching renderer), `screens/config/SectionTree.tsx`, `api.ts` additions; `Config.tsx` swaps Guided → All Settings.
 
 ## Testing
