@@ -55,11 +55,12 @@ func buildServer(configPath string) (*http.Server, *consolecfg.ConsoleConfig, er
 	if err != nil {
 		return nil, nil, err
 	}
-	mgr := auth.NewManager(auth.Options{PasswordHash: cfg.AdminPasswordHash, SecretHex: cfg.SessionSecret})
+	serveTLS := cfg.TLS.CertFile != "" && cfg.TLS.KeyFile != ""
+	mgr := auth.NewManager(auth.Options{PasswordHash: cfg.AdminPasswordHash, SecretHex: cfg.SessionSecret, Secure: serveTLS})
 	handler := server.New(server.Deps{
 		Auth:    mgr,
 		Config:  configsvc.New(cfg.ConfigPath),
-		Client:  pipelockclient.New(pipelockclient.Options{BaseURL: cfg.Pipelock.BaseURL, KillswitchURL: cfg.Pipelock.KillswitchURL, APIToken: cfg.Pipelock.APIToken}),
+		Client:  pipelockclient.New(pipelockclient.Options{BaseURL: cfg.Pipelock.BaseURL, KillswitchURL: cfg.Pipelock.KillswitchURL, APIToken: cfg.EffectiveAPIToken()}),
 		Service: service.New(cfg.ServiceUnit),
 		Buffer:  events.NewBuffer(1000),
 		Hub:     events.NewHub(),

@@ -51,7 +51,12 @@ func Load(path string) (*ConsoleConfig, error) {
 	}
 
 	if cfg.Listen == "" {
-		cfg.Listen = "0.0.0.0:9443"
+		// Default to loopback. First-run setup (POST /api/setup) is unauthenticated
+		// until an admin password exists; binding to all interfaces by default would
+		// let any host on the network claim the initial admin and seize config,
+		// service-restart, and kill-switch control. Operators opt into external
+		// exposure by setting listen explicitly.
+		cfg.Listen = "127.0.0.1:9443"
 	}
 	if cfg.ServiceUnit == "" {
 		cfg.ServiceUnit = "pipelock"
@@ -77,13 +82,19 @@ func Load(path string) (*ConsoleConfig, error) {
 		}
 	}
 
-	// Apply the env-token override AFTER any Save so it is honored at runtime
-	// only and never persisted to disk.
-	if token := os.Getenv("PIPELOCK_KILLSWITCH_API_TOKEN"); token != "" {
-		cfg.Pipelock.APIToken = token
-	}
-
 	return cfg, nil
+}
+
+// EffectiveAPIToken returns the API token the console should use at runtime,
+// preferring the PIPELOCK_KILLSWITCH_API_TOKEN env override over the on-disk
+// value. The override is read on demand and intentionally not stored on the
+// config struct, so persisting the config (e.g. saving the first-run admin
+// password) can never write an env-supplied token to disk.
+func (c *ConsoleConfig) EffectiveAPIToken() string {
+	if token := os.Getenv("PIPELOCK_KILLSWITCH_API_TOKEN"); token != "" {
+		return token
+	}
+	return c.Pipelock.APIToken
 }
 
 // Save writes the console config back to disk atomically (temp + rename).

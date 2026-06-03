@@ -51,6 +51,36 @@ func TestLoginThenAccess(t *testing.T) {
 	}
 }
 
+func TestLoginCookieSecureFlagTracksOption(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	for _, secure := range []bool{true, false} {
+		m := NewManager(Options{PasswordHash: hash, SecretHex: "00112233445566778899aabbccddeeff", Secure: secure})
+		loginRec := httptest.NewRecorder()
+		if !m.Login(loginRec, "pw") {
+			t.Fatalf("login failed (secure=%v)", secure)
+		}
+		cookies := loginRec.Result().Cookies()
+		if len(cookies) == 0 {
+			t.Fatalf("no cookie issued (secure=%v)", secure)
+		}
+		if cookies[0].Secure != secure {
+			t.Errorf("login cookie Secure = %v, want %v", cookies[0].Secure, secure)
+		}
+
+		logoutReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/logout", nil)
+		logoutReq.AddCookie(cookies[0])
+		logoutRec := httptest.NewRecorder()
+		m.Logout(logoutRec, logoutReq)
+		logoutCookies := logoutRec.Result().Cookies()
+		if len(logoutCookies) == 0 {
+			t.Fatalf("no logout cookie issued (secure=%v)", secure)
+		}
+		if logoutCookies[0].Secure != secure {
+			t.Errorf("logout cookie Secure = %v, want %v", logoutCookies[0].Secure, secure)
+		}
+	}
+}
+
 func TestLoginRejectsWrongPassword(t *testing.T) {
 	hash, _ := HashPassword("right")
 	m := newTestManager(t, hash)

@@ -18,12 +18,17 @@ const cookieName = "pipelock_console_session"
 type Options struct {
 	PasswordHash string
 	SecretHex    string
+	// Secure marks session cookies with the Secure attribute so browsers only
+	// send them over HTTPS. Set it when the console serves TLS; leave it false
+	// for plain-HTTP loopback access where Secure cookies are never sent.
+	Secure bool
 }
 
 // Manager handles login, session cookies, and auth middleware.
 type Manager struct {
 	passwordHash string
 	secret       []byte
+	secure       bool
 	mu           sync.Mutex
 	sessions     map[string]struct{}
 }
@@ -31,7 +36,7 @@ type Manager struct {
 // NewManager constructs a Manager.
 func NewManager(o Options) *Manager {
 	secret, _ := hex.DecodeString(o.SecretHex)
-	return &Manager{passwordHash: o.PasswordHash, secret: secret, sessions: make(map[string]struct{})}
+	return &Manager{passwordHash: o.PasswordHash, secret: secret, secure: o.Secure, sessions: make(map[string]struct{})}
 }
 
 // NeedsSetup reports whether no admin password has been set yet.
@@ -63,17 +68,24 @@ func (m *Manager) Login(w http.ResponseWriter, password string) bool {
 		return false
 	}
 	raw := make([]byte, 32)
-	_, _ = rand.Read(raw)
+	if _, err := rand.Read(raw); err != nil {
+		// Fail closed: never mint a session token from incomplete entropy, or
+		// the admin cookie would be predictable.
+		return false
+	}
 	token := hex.EncodeToString(raw)
 	m.mu.Lock()
 	m.sessions[token] = struct{}{}
 	m.mu.Unlock()
-	// Secure flag is omitted here; the server layer adds it when TLS is active.
-	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure flag added at TLS termination layer
+	// Secure is set when the console serves TLS; plain-HTTP loopback deployments
+	// intentionally omit it (browsers never send Secure cookies over http, which
+	// would break loopback login). gosec can't prove the conditional is true.
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure tracks m.secure; conditional by design for plain-HTTP loopback
 		Name:     cookieName,
 		Value:    token + "." + m.sign(token),
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   m.secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 	return true
@@ -88,12 +100,13 @@ func (m *Manager) Logout(w http.ResponseWriter, r *http.Request) {
 			m.mu.Unlock()
 		}
 	}
-	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure flag added at TLS termination layer; this cookie clears the session
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure tracks m.secure; conditional by design for plain-HTTP loopback (clears the session)
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   m.secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }

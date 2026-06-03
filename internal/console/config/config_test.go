@@ -84,11 +84,13 @@ func TestSaveRoundTripsAdminPasswordHash(t *testing.T) {
 	}
 }
 
-func TestLoadEnvTokenOverrideNotPersisted(t *testing.T) {
+// TestEffectiveAPITokenPrefersEnvOverride verifies the env override wins at
+// runtime but never lands on the config struct, so it cannot be persisted by a
+// later Save (e.g. the first-run admin-password write).
+func TestEffectiveAPITokenPrefersEnvOverride(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
-	// Provide a session_secret so Load does not trigger a Save.
-	const existing = "config_path: /tmp/p.yaml\nsession_secret: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n"
+	const existing = "config_path: /tmp/p.yaml\nsession_secret: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\npipelock:\n  api_token: disk-token\n"
 	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -98,23 +100,19 @@ func TestLoadEnvTokenOverrideNotPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Pipelock.APIToken != envToken {
-		t.Errorf("APIToken = %q, want env override %q", cfg.Pipelock.APIToken, envToken)
+	if cfg.Pipelock.APIToken != "disk-token" {
+		t.Errorf("on-disk APIToken on struct = %q, want unchanged disk value", cfg.Pipelock.APIToken)
 	}
-	raw, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(raw), envToken) {
-		t.Errorf("env token must not be persisted to disk, found in: %s", raw)
+	if got := cfg.EffectiveAPIToken(); got != envToken {
+		t.Errorf("EffectiveAPIToken = %q, want env override %q", got, envToken)
 	}
 }
 
-// TestLoadEnvTokenNotPersistedOnFirstRun exercises the first-run path where
-// Load generates a session secret and Saves the config. The env-token override
-// must be applied AFTER that Save, so the token is never written to disk. This
-// regression test fails if the override block is moved before the Save.
-func TestLoadEnvTokenNotPersistedOnFirstRun(t *testing.T) {
+// TestEnvTokenNeverPersistedAcrossSave is the regression guard for the env
+// token leaking to disk: after Load applies no override to the struct, a Save
+// (such as persisting the first-run admin password) must not write the env
+// token. Fails if the override is ever baked back onto cfg before a Save.
+func TestEnvTokenNeverPersistedAcrossSave(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
 	// No session_secret: first-run Save fires inside Load.
@@ -127,15 +125,35 @@ func TestLoadEnvTokenNotPersistedOnFirstRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Pipelock.APIToken != envToken {
-		t.Errorf("APIToken = %q, want env override %q", cfg.Pipelock.APIToken, envToken)
+	if got := cfg.EffectiveAPIToken(); got != envToken {
+		t.Errorf("EffectiveAPIToken = %q, want env override %q", got, envToken)
+	}
+	// Simulate the first-run admin-password persistence path.
+	cfg.AdminPasswordHash = "$argon2id$v=19$..."
+	if err := Save(path, cfg); err != nil {
+		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(raw), envToken) {
-		t.Errorf("env token must not be persisted to disk on first run, found in: %s", raw)
+		t.Errorf("env token must never be persisted to disk, found in: %s", raw)
+	}
+}
+
+func TestLoadDefaultsListenToLoopback(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.yaml")
+	if err := os.WriteFile(path, []byte("config_path: /tmp/p.yaml\nsession_secret: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Listen != "127.0.0.1:9443" {
+		t.Errorf("default Listen = %q, want loopback 127.0.0.1:9443", cfg.Listen)
 	}
 }
 

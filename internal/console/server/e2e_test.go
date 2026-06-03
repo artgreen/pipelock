@@ -18,6 +18,7 @@ import (
 	"github.com/luckyPipewrench/pipelock/internal/console/pipelockclient"
 	"github.com/luckyPipewrench/pipelock/internal/console/server"
 	"github.com/luckyPipewrench/pipelock/internal/console/service"
+	"github.com/luckyPipewrench/pipelock/internal/testwait"
 )
 
 func TestEndToEndIngestToSSE(t *testing.T) {
@@ -60,7 +61,7 @@ func TestEndToEndIngestToSSE(t *testing.T) {
 	}
 	defer func() { _ = sseResp.Body.Close() }()
 
-	// give the SSE handler a moment to subscribe, then ingest an event
+	// Read the SSE stream in the background, capturing the first dlp.secret event.
 	got := make(chan string, 1)
 	go func() {
 		scanner := bufio.NewScanner(sseResp.Body)
@@ -73,7 +74,9 @@ func TestEndToEndIngestToSSE(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the SSE handler to register its subscription before ingesting,
+	// so the broadcast is guaranteed to reach this client.
+	testwait.For(t, 5*time.Second, func() bool { return hub.SubscriberCount() == 1 }, "SSE subscriber to register")
 	ingestReq, _ := http.NewRequestWithContext(t.Context(), http.MethodPost, ts.URL+"/ingest", strings.NewReader(`{"severity":"critical","type":"dlp.secret","fields":{"target":"api.openai.com"}}`))
 	ingestResp, err := client.Do(ingestReq)
 	if err != nil {

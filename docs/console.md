@@ -35,8 +35,11 @@ single self-contained binary with no runtime Node.js dependency.
 The console reads its own YAML config — separate from `pipelock.yaml`.
 
 ```yaml
-# Address and port to listen on. Default: 0.0.0.0:9443
-listen: "0.0.0.0:9443"
+# Address and port to listen on. Default: 127.0.0.1:9443 (loopback only).
+# First-run setup is unauthenticated until an admin password is set, so the
+# console binds to loopback by default. Set an explicit address (and put TLS in
+# front) to expose it beyond the local host.
+listen: "127.0.0.1:9443"
 
 # TLS — optional. When both fields are set the server serves HTTPS directly.
 # If you terminate TLS in front (Traefik, Caddy, nginx), leave this blank.
@@ -151,9 +154,18 @@ No SSH is needed or used.
 
 - **Single admin password** gates all `/api/*` routes. `/ingest` is
   intentionally open so pipelock can POST events without authentication.
+- **Loopback by default** — `listen` defaults to `127.0.0.1:9443`. First-run
+  setup (`POST /api/setup`) is unauthenticated until an admin password exists,
+  so binding to all interfaces by default would let any host on the network
+  claim the initial admin. Set `listen` to an external address only behind TLS.
 - **Put TLS in front** — either set `tls.cert_file` / `tls.key_file` for
   built-in HTTPS, or place a reverse proxy (Traefik, Caddy, nginx) in front.
   The console runs on the network; never expose it over plain HTTP to untrusted
   networks.
+- **Session cookies are marked `Secure` when the console serves TLS**
+  (`tls.cert_file` + `tls.key_file` set). Plain-HTTP loopback access omits the
+  flag, since browsers never send `Secure` cookies over `http://`. If you
+  terminate TLS at a front proxy and run the console over plain HTTP, serve it
+  on loopback only.
 - The `session_secret` is auto-generated on first startup and stored in the
   config file (mode `0600`). Rotating it invalidates all active sessions.
