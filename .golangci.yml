@@ -22,6 +22,12 @@ linters:
     - usestdlibvars
     - wastedassign
   exclusions:
+    # The console web app vendors a JS dependency (flatted) that ships a
+    # stray Go file under node_modules. It is not our code and trips govet;
+    # exclude the whole app dir so `golangci-lint run ./...` stays clean even
+    # after `make console-web` has populated node_modules on disk.
+    paths:
+      - internal/console/web/app
     rules:
       - path: internal/proxy/proxy\.go
         linters: [gosec]
