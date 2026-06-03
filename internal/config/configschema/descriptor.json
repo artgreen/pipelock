@@ -1,0 +1,4250 @@
+{
+  "field_count": 380,
+  "sections": [
+    {
+      "path": "version",
+      "key": "version",
+      "label": "Version",
+      "type": "int",
+      "default": 1
+    },
+    {
+      "path": "mode",
+      "key": "mode",
+      "label": "Mode",
+      "type": "enum",
+      "help": "strict, balanced, audit",
+      "default": "balanced",
+      "enum": [
+        "strict",
+        "balanced",
+        "audit"
+      ]
+    },
+    {
+      "path": "enforce",
+      "key": "enforce",
+      "label": "Enforce",
+      "type": "tristate",
+      "help": "nil = true (default); false = detect \u0026 log without blocking",
+      "default": true
+    },
+    {
+      "path": "explain_blocks",
+      "key": "explain_blocks",
+      "label": "Explain Blocks",
+      "type": "tristate",
+      "help": "nil = false (default); true = include hints in block responses",
+      "default": false
+    },
+    {
+      "path": "api_allowlist",
+      "key": "api_allowlist",
+      "label": "Api Allowlist",
+      "type": "list",
+      "default": [
+        "*.anthropic.com",
+        "*.openai.com",
+        "api.telegram.org",
+        "*.discord.com",
+        "gateway.discord.gg",
+        "*.slack.com",
+        "github.com",
+        "*.github.com",
+        "*.githubusercontent.com",
+        "registry.npmjs.org"
+      ]
+    },
+    {
+      "path": "suppress",
+      "key": "suppress",
+      "label": "Suppress",
+      "type": "objlist",
+      "element": [
+        {
+          "path": "rule",
+          "key": "rule",
+          "label": "Rule",
+          "type": "string",
+          "help": "pattern name (required)"
+        },
+        {
+          "path": "path",
+          "key": "path",
+          "label": "Path",
+          "type": "string",
+          "help": "exact path, glob, or URL pattern (required)"
+        },
+        {
+          "path": "reason",
+          "key": "reason",
+          "label": "Reason",
+          "type": "string",
+          "help": "human-readable justification"
+        }
+      ]
+    },
+    {
+      "path": "fetch_proxy",
+      "key": "fetch_proxy",
+      "label": "Fetch Proxy",
+      "type": "group",
+      "children": [
+        {
+          "path": "fetch_proxy.listen",
+          "key": "listen",
+          "label": "Listen",
+          "type": "string",
+          "default": "127.0.0.1:8888"
+        },
+        {
+          "path": "fetch_proxy.timeout_seconds",
+          "key": "timeout_seconds",
+          "label": "Timeout Seconds",
+          "type": "int",
+          "default": 30
+        },
+        {
+          "path": "fetch_proxy.max_response_mb",
+          "key": "max_response_mb",
+          "label": "Max Response Mb",
+          "type": "int",
+          "default": 10
+        },
+        {
+          "path": "fetch_proxy.user_agent",
+          "key": "user_agent",
+          "label": "User Agent",
+          "type": "string",
+          "default": "Pipelock Fetch/1.0"
+        },
+        {
+          "path": "fetch_proxy.monitoring",
+          "key": "monitoring",
+          "label": "Monitoring",
+          "type": "group",
+          "children": [
+            {
+              "path": "fetch_proxy.monitoring.max_url_length",
+              "key": "max_url_length",
+              "label": "Max Url Length",
+              "type": "int",
+              "default": 2048
+            },
+            {
+              "path": "fetch_proxy.monitoring.entropy_threshold",
+              "key": "entropy_threshold",
+              "label": "Entropy Threshold",
+              "type": "float",
+              "default": 4.5
+            },
+            {
+              "path": "fetch_proxy.monitoring.subdomain_entropy_threshold",
+              "key": "subdomain_entropy_threshold",
+              "label": "Subdomain Entropy Threshold",
+              "type": "float",
+              "help": "separate threshold for subdomain labels (default 4.0, lower than query params)",
+              "default": 4
+            },
+            {
+              "path": "fetch_proxy.monitoring.max_requests_per_minute",
+              "key": "max_requests_per_minute",
+              "label": "Max Requests Per Minute",
+              "type": "int",
+              "default": 60
+            },
+            {
+              "path": "fetch_proxy.monitoring.max_data_per_minute",
+              "key": "max_data_per_minute",
+              "label": "Max Data Per Minute",
+              "type": "int",
+              "help": "bytes per domain per minute (0 = disabled)",
+              "default": 0
+            },
+            {
+              "path": "fetch_proxy.monitoring.blocklist",
+              "key": "blocklist",
+              "label": "Blocklist",
+              "type": "list",
+              "default": [
+                "*.pastebin.com",
+                "*.hastebin.com",
+                "*.paste.ee",
+                "*.transfer.sh",
+                "*.file.io",
+                "*.requestbin.com"
+              ]
+            },
+            {
+              "path": "fetch_proxy.monitoring.subdomain_entropy_exclusions",
+              "key": "subdomain_entropy_exclusions",
+              "label": "Subdomain Entropy Exclusions",
+              "type": "list",
+              "help": "domains excluded from subdomain entropy checks (exact or *.example.com wildcard)",
+              "default": [
+                "files.pythonhosted.org",
+                "pypi.org",
+                "objects.githubusercontent.com"
+              ]
+            },
+            {
+              "path": "fetch_proxy.monitoring.query_entropy_exclusions",
+              "key": "query_entropy_exclusions",
+              "label": "Query Entropy Exclusions",
+              "type": "list",
+              "help": "QueryEntropyExclusions lists hosts whose URL query parameter keys and values should bypass the entropy block, while subdomain and path entropy gates and DLP body scanning remain enforced. Intended for well-known APIs whose contract embeds high-entropy material in query strings by design (e.g. S3 pre-signed download/upload URLs with X-Amz-Signature / X-Amz-Credential / response-content-disposition). Same wildcard rules as SubdomainEntropyExclusions: exact host or \"*.example.com\". An empty list (default) preserves the prior always-on query entropy behavior.",
+              "default": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "forward_proxy",
+      "key": "forward_proxy",
+      "label": "Forward Proxy",
+      "type": "group",
+      "children": [
+        {
+          "path": "forward_proxy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "forward_proxy.max_tunnel_seconds",
+          "key": "max_tunnel_seconds",
+          "label": "Max Tunnel Seconds",
+          "type": "int",
+          "default": 300
+        },
+        {
+          "path": "forward_proxy.idle_timeout_seconds",
+          "key": "idle_timeout_seconds",
+          "label": "Idle Timeout Seconds",
+          "type": "int",
+          "default": 120
+        },
+        {
+          "path": "forward_proxy.sni_verification",
+          "key": "sni_verification",
+          "label": "Sni Verification",
+          "type": "tristate",
+          "default": true
+        },
+        {
+          "path": "forward_proxy.redirect_websocket_hosts",
+          "key": "redirect_websocket_hosts",
+          "label": "Redirect Websocket Hosts",
+          "type": "list",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "websocket_proxy",
+      "key": "websocket_proxy",
+      "label": "Websocket Proxy",
+      "type": "group",
+      "children": [
+        {
+          "path": "websocket_proxy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "websocket_proxy.max_message_bytes",
+          "key": "max_message_bytes",
+          "label": "Max Message Bytes",
+          "type": "int",
+          "default": 1048576
+        },
+        {
+          "path": "websocket_proxy.max_concurrent_connections",
+          "key": "max_concurrent_connections",
+          "label": "Max Concurrent Connections",
+          "type": "int",
+          "default": 128
+        },
+        {
+          "path": "websocket_proxy.scan_text_frames",
+          "key": "scan_text_frames",
+          "label": "Scan Text Frames",
+          "type": "tristate",
+          "default": true
+        },
+        {
+          "path": "websocket_proxy.allow_binary_frames",
+          "key": "allow_binary_frames",
+          "label": "Allow Binary Frames",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "websocket_proxy.forward_cookies",
+          "key": "forward_cookies",
+          "label": "Forward Cookies",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "websocket_proxy.strip_compression",
+          "key": "strip_compression",
+          "label": "Strip Compression",
+          "type": "tristate",
+          "default": true
+        },
+        {
+          "path": "websocket_proxy.max_connection_seconds",
+          "key": "max_connection_seconds",
+          "label": "Max Connection Seconds",
+          "type": "int",
+          "default": 3600
+        },
+        {
+          "path": "websocket_proxy.idle_timeout_seconds",
+          "key": "idle_timeout_seconds",
+          "label": "Idle Timeout Seconds",
+          "type": "int",
+          "default": 300
+        },
+        {
+          "path": "websocket_proxy.origin_policy",
+          "key": "origin_policy",
+          "label": "Origin Policy",
+          "type": "string",
+          "help": "rewrite (default), forward, strip",
+          "default": "rewrite"
+        }
+      ]
+    },
+    {
+      "path": "dlp",
+      "key": "dlp",
+      "label": "Dlp",
+      "type": "group",
+      "children": [
+        {
+          "path": "dlp.scan_env",
+          "key": "scan_env",
+          "label": "Scan Env",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "dlp.secrets_file",
+          "key": "secrets_file",
+          "label": "Secrets File",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "dlp.min_env_secret_length",
+          "key": "min_env_secret_length",
+          "label": "Min Env Secret Length",
+          "type": "int",
+          "help": "minimum env var length for leak detection (default 16)",
+          "default": 0
+        },
+        {
+          "path": "dlp.include_defaults",
+          "key": "include_defaults",
+          "label": "Include Defaults",
+          "type": "tristate",
+          "help": "nil/true: merge user patterns with defaults; false: user patterns only",
+          "default": true
+        },
+        {
+          "path": "dlp.patterns",
+          "key": "patterns",
+          "label": "Patterns",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "regex",
+              "key": "regex",
+              "label": "Regex",
+              "type": "string"
+            },
+            {
+              "path": "severity",
+              "key": "severity",
+              "label": "Severity",
+              "type": "enum",
+              "help": "critical, high, medium, low",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "validator",
+              "key": "validator",
+              "label": "Validator",
+              "type": "string",
+              "help": "post-match checksum: \"luhn\", \"mod97\", \"aba\""
+            },
+            {
+              "path": "exempt_domains",
+              "key": "exempt_domains",
+              "label": "Exempt Domains",
+              "type": "list",
+              "help": "domains where this pattern is not enforced"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "reserved - not yet implemented; rejected at validation"
+            }
+          ]
+        },
+        {
+          "path": "dlp.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "reserved - not yet implemented; rejected at validation",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "path": "canary_tokens",
+      "key": "canary_tokens",
+      "label": "Canary Tokens",
+      "type": "opaque",
+      "advanced_only": true
+    },
+    {
+      "path": "response_scanning",
+      "key": "response_scanning",
+      "label": "Response Scanning",
+      "type": "group",
+      "children": [
+        {
+          "path": "response_scanning.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "response_scanning.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "strip, warn, block, ask",
+          "default": "warn"
+        },
+        {
+          "path": "response_scanning.ask_timeout_seconds",
+          "key": "ask_timeout_seconds",
+          "label": "Ask Timeout Seconds",
+          "type": "int",
+          "help": "timeout for HITL prompt (default 30)",
+          "default": 0
+        },
+        {
+          "path": "response_scanning.include_defaults",
+          "key": "include_defaults",
+          "label": "Include Defaults",
+          "type": "tristate",
+          "help": "nil/true: merge user patterns with defaults; false: user patterns only",
+          "default": true
+        },
+        {
+          "path": "response_scanning.patterns",
+          "key": "patterns",
+          "label": "Patterns",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "regex",
+              "key": "regex",
+              "label": "Regex",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "path": "response_scanning.exempt_domains",
+          "key": "exempt_domains",
+          "label": "Exempt Domains",
+          "type": "list",
+          "help": "responses from these hosts skip injection scanning (DLP still applies)",
+          "default": null
+        },
+        {
+          "path": "response_scanning.sse_streaming",
+          "key": "sse_streaming",
+          "label": "Sse Streaming",
+          "type": "group",
+          "help": "generic text/event-stream inline scanning (LLM SSE)",
+          "children": [
+            {
+              "path": "response_scanning.sse_streaming.enabled",
+              "key": "enabled",
+              "label": "Enabled",
+              "type": "bool",
+              "default": true
+            },
+            {
+              "path": "response_scanning.sse_streaming.action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "warn, block (mirrors a2a_scanning.action)",
+              "default": "block"
+            },
+            {
+              "path": "response_scanning.sse_streaming.max_event_bytes",
+              "key": "max_event_bytes",
+              "label": "Max Event Bytes",
+              "type": "int",
+              "help": "per-event ceiling, default 65536",
+              "default": 65536
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "mcp_input_scanning",
+      "key": "mcp_input_scanning",
+      "label": "Mcp Input Scanning",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_input_scanning.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_input_scanning.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": ""
+        },
+        {
+          "path": "mcp_input_scanning.on_parse_error",
+          "key": "on_parse_error",
+          "label": "On Parse Error",
+          "type": "string",
+          "help": "block (default), forward",
+          "default": "block"
+        }
+      ]
+    },
+    {
+      "path": "mcp_tool_scanning",
+      "key": "mcp_tool_scanning",
+      "label": "Mcp Tool Scanning",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_tool_scanning.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_tool_scanning.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": ""
+        },
+        {
+          "path": "mcp_tool_scanning.detect_drift",
+          "key": "detect_drift",
+          "label": "Detect Drift",
+          "type": "bool",
+          "help": "rug pull detection",
+          "default": false
+        }
+      ]
+    },
+    {
+      "path": "mcp_tool_policy",
+      "key": "mcp_tool_policy",
+      "label": "Mcp Tool Policy",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_tool_policy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_tool_policy.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "warn, block, redirect (default for rules without override)",
+          "default": ""
+        },
+        {
+          "path": "mcp_tool_policy.rules",
+          "key": "rules",
+          "label": "Rules",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "tool_pattern",
+              "key": "tool_pattern",
+              "label": "Tool Pattern",
+              "type": "string",
+              "help": "regex matching tool name"
+            },
+            {
+              "path": "arg_pattern",
+              "key": "arg_pattern",
+              "label": "Arg Pattern",
+              "type": "string",
+              "help": "regex matching argument values (optional)"
+            },
+            {
+              "path": "arg_key",
+              "key": "arg_key",
+              "label": "Arg Key",
+              "type": "string",
+              "help": "regex scoping arg_pattern to specific argument keys (optional)"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "per-rule override: warn, block, redirect (optional)"
+            },
+            {
+              "path": "redirect_profile",
+              "key": "redirect_profile",
+              "label": "Redirect Profile",
+              "type": "string",
+              "help": "key in redirect_profiles (required when action=redirect)"
+            }
+          ]
+        },
+        {
+          "path": "mcp_tool_policy.redirect_profiles",
+          "key": "redirect_profiles",
+          "label": "Redirect Profiles",
+          "type": "objmap",
+          "element": [
+            {
+              "path": "exec",
+              "key": "exec",
+              "label": "Exec",
+              "type": "list",
+              "help": "command + args (e.g. [\"/proc/self/exe\", \"internal-redirect\", \"fetch-proxy\"])"
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string",
+              "help": "human-readable justification for redirect"
+            },
+            {
+              "path": "preserve_argv",
+              "key": "preserve_argv",
+              "label": "Preserve Argv",
+              "type": "bool",
+              "help": "pass original tool arguments to handler"
+            },
+            {
+              "path": "match_abs_path",
+              "key": "match_abs_path",
+              "label": "Match Abs Path",
+              "type": "bool",
+              "help": "require absolute path in exec[0]"
+            }
+          ]
+        },
+        {
+          "path": "mcp_tool_policy.quarantine_dir",
+          "key": "quarantine_dir",
+          "label": "Quarantine Dir",
+          "type": "string",
+          "default": "${TMPDIR}/pipelock-quarantine"
+        }
+      ]
+    },
+    {
+      "path": "git_protection",
+      "key": "git_protection",
+      "label": "Git Protection",
+      "type": "group",
+      "children": [
+        {
+          "path": "git_protection.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "git_protection.allowed_branches",
+          "key": "allowed_branches",
+          "label": "Allowed Branches",
+          "type": "list",
+          "default": [
+            "feature/*",
+            "fix/*",
+            "main",
+            "master"
+          ]
+        },
+        {
+          "path": "git_protection.blocked_commands",
+          "key": "blocked_commands",
+          "label": "Blocked Commands",
+          "type": "list",
+          "default": null
+        },
+        {
+          "path": "git_protection.pre_push_scan",
+          "key": "pre_push_scan",
+          "label": "Pre Push Scan",
+          "type": "bool",
+          "default": true
+        }
+      ]
+    },
+    {
+      "path": "logging",
+      "key": "logging",
+      "label": "Logging",
+      "type": "group",
+      "children": [
+        {
+          "path": "logging.format",
+          "key": "format",
+          "label": "Format",
+          "type": "string",
+          "help": "json, text",
+          "default": "json"
+        },
+        {
+          "path": "logging.output",
+          "key": "output",
+          "label": "Output",
+          "type": "string",
+          "help": "stdout, file, both",
+          "default": "stdout"
+        },
+        {
+          "path": "logging.file",
+          "key": "file",
+          "label": "File",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "logging.include_allowed",
+          "key": "include_allowed",
+          "label": "Include Allowed",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "logging.include_blocked",
+          "key": "include_blocked",
+          "label": "Include Blocked",
+          "type": "bool",
+          "default": true
+        }
+      ]
+    },
+    {
+      "path": "session_profiling",
+      "key": "session_profiling",
+      "label": "Session Profiling",
+      "type": "group",
+      "children": [
+        {
+          "path": "session_profiling.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "session_profiling.anomaly_action",
+          "key": "anomaly_action",
+          "label": "Anomaly Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": "warn"
+        },
+        {
+          "path": "session_profiling.domain_burst",
+          "key": "domain_burst",
+          "label": "Domain Burst",
+          "type": "int",
+          "help": "new domains in one window to flag",
+          "default": 5
+        },
+        {
+          "path": "session_profiling.window_minutes",
+          "key": "window_minutes",
+          "label": "Window Minutes",
+          "type": "int",
+          "help": "rolling window duration",
+          "default": 5
+        },
+        {
+          "path": "session_profiling.volume_spike_ratio",
+          "key": "volume_spike_ratio",
+          "label": "Volume Spike Ratio",
+          "type": "float",
+          "help": "bytes \u003e ratio * rolling avg",
+          "default": 3
+        },
+        {
+          "path": "session_profiling.max_sessions",
+          "key": "max_sessions",
+          "label": "Max Sessions",
+          "type": "int",
+          "help": "hard cap on concurrent sessions",
+          "default": 1000
+        },
+        {
+          "path": "session_profiling.session_ttl_minutes",
+          "key": "session_ttl_minutes",
+          "label": "Session Ttl Minutes",
+          "type": "int",
+          "help": "idle eviction TTL",
+          "default": 30
+        },
+        {
+          "path": "session_profiling.cleanup_interval_seconds",
+          "key": "cleanup_interval_seconds",
+          "label": "Cleanup Interval Seconds",
+          "type": "int",
+          "help": "background cleanup period",
+          "default": 60
+        }
+      ]
+    },
+    {
+      "path": "adaptive_enforcement",
+      "key": "adaptive_enforcement",
+      "label": "Adaptive Enforcement",
+      "type": "group",
+      "children": [
+        {
+          "path": "adaptive_enforcement.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "adaptive_enforcement.escalation_threshold",
+          "key": "escalation_threshold",
+          "label": "Escalation Threshold",
+          "type": "float",
+          "help": "points before escalation",
+          "default": 0
+        },
+        {
+          "path": "adaptive_enforcement.decay_per_clean_request",
+          "key": "decay_per_clean_request",
+          "label": "Decay Per Clean Request",
+          "type": "float",
+          "help": "score reduction per clean request",
+          "default": 0
+        },
+        {
+          "path": "adaptive_enforcement.cooperative_tool_downweight",
+          "key": "cooperative_tool_downweight",
+          "label": "Cooperative Tool Downweight",
+          "type": "bool",
+          "help": "downweight burst anomalies from known cooperative tool UAs",
+          "default": true
+        },
+        {
+          "path": "adaptive_enforcement.levels",
+          "key": "levels",
+          "label": "Levels",
+          "type": "group",
+          "children": [
+            {
+              "path": "adaptive_enforcement.levels.elevated",
+              "key": "elevated",
+              "label": "Elevated",
+              "type": "group",
+              "children": [
+                {
+                  "path": "adaptive_enforcement.levels.elevated.upgrade_warn",
+                  "key": "upgrade_warn",
+                  "label": "Upgrade Warn",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.elevated.upgrade_ask",
+                  "key": "upgrade_ask",
+                  "label": "Upgrade Ask",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.elevated.block_all",
+                  "key": "block_all",
+                  "label": "Block All",
+                  "type": "tristate",
+                  "help": "nil=default, true=session deny, false=no"
+                }
+              ]
+            },
+            {
+              "path": "adaptive_enforcement.levels.high",
+              "key": "high",
+              "label": "High",
+              "type": "group",
+              "children": [
+                {
+                  "path": "adaptive_enforcement.levels.high.upgrade_warn",
+                  "key": "upgrade_warn",
+                  "label": "Upgrade Warn",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.high.upgrade_ask",
+                  "key": "upgrade_ask",
+                  "label": "Upgrade Ask",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.high.block_all",
+                  "key": "block_all",
+                  "label": "Block All",
+                  "type": "tristate",
+                  "help": "nil=default, true=session deny, false=no"
+                }
+              ]
+            },
+            {
+              "path": "adaptive_enforcement.levels.critical",
+              "key": "critical",
+              "label": "Critical",
+              "type": "group",
+              "children": [
+                {
+                  "path": "adaptive_enforcement.levels.critical.upgrade_warn",
+                  "key": "upgrade_warn",
+                  "label": "Upgrade Warn",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.critical.upgrade_ask",
+                  "key": "upgrade_ask",
+                  "label": "Upgrade Ask",
+                  "type": "string",
+                  "help": "nil=default, \"block\"=upgrade, \"\"=no upgrade",
+                  "default": null
+                },
+                {
+                  "path": "adaptive_enforcement.levels.critical.block_all",
+                  "key": "block_all",
+                  "label": "Block All",
+                  "type": "tristate",
+                  "help": "nil=default, true=session deny, false=no"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "path": "adaptive_enforcement.exempt_domains",
+          "key": "exempt_domains",
+          "label": "Exempt Domains",
+          "type": "list",
+          "help": "DLP findings on these hosts skip escalation scoring and action upgrades",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "mcp_session_binding",
+      "key": "mcp_session_binding",
+      "label": "Mcp Session Binding",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_session_binding.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_session_binding.unknown_tool_action",
+          "key": "unknown_tool_action",
+          "label": "Unknown Tool Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": ""
+        },
+        {
+          "path": "mcp_session_binding.no_baseline_action",
+          "key": "no_baseline_action",
+          "label": "No Baseline Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "path": "request_body_scanning",
+      "key": "request_body_scanning",
+      "label": "Request Body Scanning",
+      "type": "group",
+      "children": [
+        {
+          "path": "request_body_scanning.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "request_body_scanning.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "warn, block (no strip for bodies)",
+          "default": "warn"
+        },
+        {
+          "path": "request_body_scanning.max_body_bytes",
+          "key": "max_body_bytes",
+          "label": "Max Body Bytes",
+          "type": "int",
+          "help": "fail-closed above this limit",
+          "default": 5242880
+        },
+        {
+          "path": "request_body_scanning.scan_headers",
+          "key": "scan_headers",
+          "label": "Scan Headers",
+          "type": "bool",
+          "help": "scan request headers for DLP",
+          "default": true
+        },
+        {
+          "path": "request_body_scanning.header_mode",
+          "key": "header_mode",
+          "label": "Header Mode",
+          "type": "enum",
+          "help": "\"sensitive\" (listed headers) or \"all\" (everything except ignore list)",
+          "default": "sensitive",
+          "enum": [
+            "sensitive",
+            "all"
+          ]
+        },
+        {
+          "path": "request_body_scanning.sensitive_headers",
+          "key": "sensitive_headers",
+          "label": "Sensitive Headers",
+          "type": "list",
+          "help": "headers to scan in sensitive mode",
+          "default": [
+            "Authorization",
+            "Cookie",
+            "X-Api-Key",
+            "X-Token",
+            "Proxy-Authorization",
+            "X-Goog-Api-Key"
+          ]
+        },
+        {
+          "path": "request_body_scanning.ignore_headers",
+          "key": "ignore_headers",
+          "label": "Ignore Headers",
+          "type": "list",
+          "help": "headers to skip in all mode",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "request_policy",
+      "key": "request_policy",
+      "label": "Request Policy",
+      "type": "group",
+      "children": [
+        {
+          "path": "request_policy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "request_policy.on_parse_error",
+          "key": "on_parse_error",
+          "label": "On Parse Error",
+          "type": "string",
+          "help": "block (default) | warn | allow",
+          "default": "block"
+        },
+        {
+          "path": "request_policy.on_opaque_operation",
+          "key": "on_opaque_operation",
+          "label": "On Opaque Operation",
+          "type": "string",
+          "help": "block (default) | warn | allow",
+          "default": "block"
+        },
+        {
+          "path": "request_policy.rules",
+          "key": "rules",
+          "label": "Rules",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string",
+              "help": "bounded, metric-label-safe identifier"
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "block | warn"
+            },
+            {
+              "path": "shadow",
+              "key": "shadow",
+              "label": "Shadow",
+              "type": "bool",
+              "help": "log the would-be action, forward anyway"
+            },
+            {
+              "path": "route",
+              "key": "route",
+              "label": "Route",
+              "type": "group",
+              "children": [
+                {
+                  "path": "route.hosts",
+                  "key": "hosts",
+                  "label": "Hosts",
+                  "type": "list",
+                  "help": "exact host or *.suffix wildcard"
+                },
+                {
+                  "path": "route.methods",
+                  "key": "methods",
+                  "label": "Methods",
+                  "type": "list",
+                  "help": "HTTP verbs; normalized to uppercase"
+                },
+                {
+                  "path": "route.path_prefixes",
+                  "key": "path_prefixes",
+                  "label": "Path Prefixes",
+                  "type": "list",
+                  "help": "literal prefixes of the normalized path"
+                },
+                {
+                  "path": "route.path_patterns",
+                  "key": "path_patterns",
+                  "label": "Path Patterns",
+                  "type": "list",
+                  "help": "RE2 patterns against the normalized path"
+                },
+                {
+                  "path": "route.content_types",
+                  "key": "content_types",
+                  "label": "Content Types",
+                  "type": "list",
+                  "help": "media types (parameters stripped)"
+                }
+              ]
+            },
+            {
+              "path": "graphql",
+              "key": "graphql",
+              "label": "Graphql",
+              "type": "opaque",
+              "help": "optional GraphQL operation predicate",
+              "advanced_only": true
+            },
+            {
+              "path": "discriminator",
+              "key": "discriminator",
+              "label": "Discriminator",
+              "type": "opaque",
+              "help": "optional JSON discriminator-field predicate",
+              "advanced_only": true
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string",
+              "help": "operator-facing explanation (never logged with content)"
+            }
+          ]
+        },
+        {
+          "path": "request_policy.batch",
+          "key": "batch",
+          "label": "Batch",
+          "type": "objlist",
+          "help": "JSON batch endpoints whose sub-requests are evaluated recursively",
+          "element": [
+            {
+              "path": "route",
+              "key": "route",
+              "label": "Route",
+              "type": "group",
+              "children": [
+                {
+                  "path": "route.hosts",
+                  "key": "hosts",
+                  "label": "Hosts",
+                  "type": "list",
+                  "help": "exact host or *.suffix wildcard"
+                },
+                {
+                  "path": "route.methods",
+                  "key": "methods",
+                  "label": "Methods",
+                  "type": "list",
+                  "help": "HTTP verbs; normalized to uppercase"
+                },
+                {
+                  "path": "route.path_prefixes",
+                  "key": "path_prefixes",
+                  "label": "Path Prefixes",
+                  "type": "list",
+                  "help": "literal prefixes of the normalized path"
+                },
+                {
+                  "path": "route.path_patterns",
+                  "key": "path_patterns",
+                  "label": "Path Patterns",
+                  "type": "list",
+                  "help": "RE2 patterns against the normalized path"
+                },
+                {
+                  "path": "route.content_types",
+                  "key": "content_types",
+                  "label": "Content Types",
+                  "type": "list",
+                  "help": "media types (parameters stripped)"
+                }
+              ]
+            },
+            {
+              "path": "requests_field",
+              "key": "requests_field",
+              "label": "Requests Field",
+              "type": "string",
+              "help": "JSON field holding the sub-request array; default \"requests\""
+            },
+            {
+              "path": "method_field",
+              "key": "method_field",
+              "label": "Method Field",
+              "type": "string",
+              "help": "sub-request method field; default \"method\""
+            },
+            {
+              "path": "url_field",
+              "key": "url_field",
+              "label": "Url Field",
+              "type": "string",
+              "help": "sub-request URL/path field; default \"url\""
+            },
+            {
+              "path": "body_field",
+              "key": "body_field",
+              "label": "Body Field",
+              "type": "string",
+              "help": "sub-request body field; default \"body\""
+            },
+            {
+              "path": "max_sub_requests",
+              "key": "max_sub_requests",
+              "label": "Max Sub Requests",
+              "type": "int",
+              "help": "cap on sub-requests evaluated per batch; default 64"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "kill_switch",
+      "key": "kill_switch",
+      "label": "Kill Switch",
+      "type": "group",
+      "children": [
+        {
+          "path": "kill_switch.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "kill_switch.sentinel_file",
+          "key": "sentinel_file",
+          "label": "Sentinel File",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "kill_switch.message",
+          "key": "message",
+          "label": "Message",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "kill_switch.health_exempt",
+          "key": "health_exempt",
+          "label": "Health Exempt",
+          "type": "tristate"
+        },
+        {
+          "path": "kill_switch.metrics_exempt",
+          "key": "metrics_exempt",
+          "label": "Metrics Exempt",
+          "type": "tristate"
+        },
+        {
+          "path": "kill_switch.api_exempt",
+          "key": "api_exempt",
+          "label": "Api Exempt",
+          "type": "tristate",
+          "help": "exempt /api/v1/* from kill switch (default true)"
+        },
+        {
+          "path": "kill_switch.api_token",
+          "key": "api_token",
+          "label": "Api Token",
+          "type": "string",
+          "default": "",
+          "secret": true
+        },
+        {
+          "path": "kill_switch.api_listen",
+          "key": "api_listen",
+          "label": "Api Listen",
+          "type": "string",
+          "help": "separate listen address for kill switch API (e.g. \"0.0.0.0:9090\")",
+          "default": ""
+        },
+        {
+          "path": "kill_switch.allowlist_ips",
+          "key": "allowlist_ips",
+          "label": "Allowlist Ips",
+          "type": "list",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "health_watchdog",
+      "key": "health_watchdog",
+      "label": "Health Watchdog",
+      "type": "group",
+      "help": "operational liveness, excluded from canonical policy hash",
+      "children": [
+        {
+          "path": "health_watchdog.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "health_watchdog.interval_seconds",
+          "key": "interval_seconds",
+          "label": "Interval Seconds",
+          "type": "int",
+          "help": "tick rate; staleness threshold is 3 × this. Defaults to 2.",
+          "default": 2
+        },
+        {
+          "path": "health_watchdog.expose_subsystems",
+          "key": "expose_subsystems",
+          "label": "Expose Subsystems",
+          "type": "bool",
+          "help": "ExposeSubsystems controls whether /health includes the per-subsystem boolean breakdown (scanner / config / session / killswitch / watchdog) alongside the overall status. The breakdown is operationally useful for diagnosing wedges but lets unauthenticated callers distinguish scanner failure from config failure from killswitch wiring, which is material reconnaissance against a security boundary product. Defaults to false: /health still returns 503 when any subsystem is unhealthy so external supervisors keep a clean liveness signal, but the response body omits the subsystem map. Operators who want the breakdown on a trusted network set this to true; a future change can move the detail to the authenticated kill-switch API listener.",
+          "default": false
+        }
+      ]
+    },
+    {
+      "path": "sentry",
+      "key": "sentry",
+      "label": "Sentry",
+      "type": "group",
+      "children": [
+        {
+          "path": "sentry.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "tristate",
+          "help": "nil = true (default enabled)",
+          "default": true
+        },
+        {
+          "path": "sentry.dsn",
+          "key": "dsn",
+          "label": "Dsn",
+          "type": "string",
+          "help": "Sentry DSN; also reads SENTRY_DSN env",
+          "default": "",
+          "secret": true
+        },
+        {
+          "path": "sentry.environment",
+          "key": "environment",
+          "label": "Environment",
+          "type": "string",
+          "help": "e.g. \"production\" (default)",
+          "default": ""
+        },
+        {
+          "path": "sentry.sample_rate",
+          "key": "sample_rate",
+          "label": "Sample Rate",
+          "type": "float",
+          "help": "nil = 1.0; 0.0-1.0",
+          "default": null
+        },
+        {
+          "path": "sentry.debug",
+          "key": "debug",
+          "label": "Debug",
+          "type": "bool",
+          "help": "SDK debug mode",
+          "default": false
+        }
+      ]
+    },
+    {
+      "path": "metrics_listen",
+      "key": "metrics_listen",
+      "label": "Metrics Listen",
+      "type": "string",
+      "help": "separate listen address for /metrics and /stats",
+      "default": ""
+    },
+    {
+      "path": "emit",
+      "key": "emit",
+      "label": "Emit",
+      "type": "group",
+      "children": [
+        {
+          "path": "emit.instance_id",
+          "key": "instance_id",
+          "label": "Instance Id",
+          "type": "string",
+          "help": "defaults to hostname",
+          "default": ""
+        },
+        {
+          "path": "emit.webhook",
+          "key": "webhook",
+          "label": "Webhook",
+          "type": "group",
+          "children": [
+            {
+              "path": "emit.webhook.url",
+              "key": "url",
+              "label": "Url",
+              "type": "string",
+              "default": ""
+            },
+            {
+              "path": "emit.webhook.min_severity",
+              "key": "min_severity",
+              "label": "Min Severity",
+              "type": "enum",
+              "help": "info, warn, critical",
+              "default": "",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "emit.webhook.auth_token",
+              "key": "auth_token",
+              "label": "Auth Token",
+              "type": "string",
+              "default": "",
+              "secret": true
+            },
+            {
+              "path": "emit.webhook.timeout_seconds",
+              "key": "timeout_seconds",
+              "label": "Timeout Seconds",
+              "type": "int",
+              "default": 0
+            },
+            {
+              "path": "emit.webhook.queue_size",
+              "key": "queue_size",
+              "label": "Queue Size",
+              "type": "int",
+              "default": 0
+            }
+          ]
+        },
+        {
+          "path": "emit.syslog",
+          "key": "syslog",
+          "label": "Syslog",
+          "type": "group",
+          "children": [
+            {
+              "path": "emit.syslog.address",
+              "key": "address",
+              "label": "Address",
+              "type": "string",
+              "help": "e.g. \"udp://syslog.example.com:514\"",
+              "default": ""
+            },
+            {
+              "path": "emit.syslog.min_severity",
+              "key": "min_severity",
+              "label": "Min Severity",
+              "type": "enum",
+              "help": "info, warn, critical",
+              "default": "",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "emit.syslog.facility",
+              "key": "facility",
+              "label": "Facility",
+              "type": "string",
+              "help": "e.g. \"local0\" (default)",
+              "default": ""
+            },
+            {
+              "path": "emit.syslog.tag",
+              "key": "tag",
+              "label": "Tag",
+              "type": "string",
+              "help": "e.g. \"pipelock\" (default)",
+              "default": ""
+            }
+          ]
+        },
+        {
+          "path": "emit.otlp",
+          "key": "otlp",
+          "label": "Otlp",
+          "type": "group",
+          "children": [
+            {
+              "path": "emit.otlp.endpoint",
+              "key": "endpoint",
+              "label": "Endpoint",
+              "type": "string",
+              "help": "base URL, /v1/logs appended",
+              "default": ""
+            },
+            {
+              "path": "emit.otlp.headers",
+              "key": "headers",
+              "label": "Headers",
+              "type": "map",
+              "help": "custom headers (auth, tenant)",
+              "default": null
+            },
+            {
+              "path": "emit.otlp.timeout_seconds",
+              "key": "timeout_seconds",
+              "label": "Timeout Seconds",
+              "type": "int",
+              "help": "per-request timeout (default 10)",
+              "default": 0
+            },
+            {
+              "path": "emit.otlp.min_severity",
+              "key": "min_severity",
+              "label": "Min Severity",
+              "type": "enum",
+              "help": "info, warn, critical",
+              "default": "",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "emit.otlp.queue_size",
+              "key": "queue_size",
+              "label": "Queue Size",
+              "type": "int",
+              "help": "async buffer size (default 256)",
+              "default": 0
+            },
+            {
+              "path": "emit.otlp.gzip",
+              "key": "gzip",
+              "label": "Gzip",
+              "type": "bool",
+              "help": "compress requests",
+              "default": false
+            },
+            {
+              "path": "emit.otlp.agent_threat_detection_emit",
+              "key": "agent_threat_detection_emit",
+              "label": "Agent Threat Detection Emit",
+              "type": "bool",
+              "help": "AgentThreatDetectionEmit adds attributes proposed by the unstable OTel `agent.threat.detection.*` semantic convention to scanner-decision log records. Off by default; opt in by setting true. Attribute names may change in subsequent Pipelock releases until the convention is accepted by the OTel SIG. See docs/observability/agent-threat-detection.md. json:\"-\" because this is a telemetry-output knob with no effect on detection or enforcement semantics, and policySemanticView's canonical hash must remain stable across pure-telemetry field additions. Verifiers compare detection semantics, not emission destinations.",
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tool_chain_detection",
+      "key": "tool_chain_detection",
+      "label": "Tool Chain Detection",
+      "type": "group",
+      "children": [
+        {
+          "path": "tool_chain_detection.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "tool_chain_detection.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "warn, block",
+          "default": ""
+        },
+        {
+          "path": "tool_chain_detection.window_size",
+          "key": "window_size",
+          "label": "Window Size",
+          "type": "int",
+          "help": "max tool calls in history",
+          "default": 0
+        },
+        {
+          "path": "tool_chain_detection.window_seconds",
+          "key": "window_seconds",
+          "label": "Window Seconds",
+          "type": "int",
+          "help": "time-based eviction",
+          "default": 0
+        },
+        {
+          "path": "tool_chain_detection.max_gap",
+          "key": "max_gap",
+          "label": "Max Gap",
+          "type": "int",
+          "help": "max innocent calls between steps (nil = default 3)",
+          "default": null
+        },
+        {
+          "path": "tool_chain_detection.tool_categories",
+          "key": "tool_categories",
+          "label": "Tool Categories",
+          "type": "opaque",
+          "help": "category -\u003e tool name patterns",
+          "advanced_only": true
+        },
+        {
+          "path": "tool_chain_detection.pattern_overrides",
+          "key": "pattern_overrides",
+          "label": "Pattern Overrides",
+          "type": "map",
+          "help": "pattern name -\u003e action override",
+          "default": null
+        },
+        {
+          "path": "tool_chain_detection.custom_patterns",
+          "key": "custom_patterns",
+          "label": "Custom Patterns",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "sequence",
+              "key": "sequence",
+              "label": "Sequence",
+              "type": "list",
+              "help": "category names"
+            },
+            {
+              "path": "severity",
+              "key": "severity",
+              "label": "Severity",
+              "type": "enum",
+              "help": "medium, high, critical",
+              "enum": [
+                "info",
+                "warn",
+                "critical",
+                "high",
+                "medium"
+              ]
+            },
+            {
+              "path": "action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "optional per-pattern override"
+            }
+          ]
+        },
+        {
+          "path": "tool_chain_detection.sensitivity_labels",
+          "key": "sensitivity_labels",
+          "label": "Sensitivity Labels",
+          "type": "opaque",
+          "help": "SensitivityLabels overrides keyword-based sensitivity classification. Keys are label names (\"untrusted_source\", \"sensitive_source\", \"external_sink\"); values are exact tool name patterns or globs. When set, overrides win over keyword fallback. Empty map = keyword-only. Lethal-trifecta detection (untrusted_source -\u003e sensitive_source -\u003e external_sink in sequence within the chain window) emits a critical verdict named \"lethal-trifecta\". Change its action by adding \"lethal-trifecta\" to PatternOverrides.",
+          "advanced_only": true
+        }
+      ]
+    },
+    {
+      "path": "mcp_ws_listener",
+      "key": "mcp_ws_listener",
+      "label": "Mcp Ws Listener",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_ws_listener.allowed_origins",
+          "key": "allowed_origins",
+          "label": "Allowed Origins",
+          "type": "list",
+          "help": "additional browser origins to allow (loopback always allowed)",
+          "default": null
+        },
+        {
+          "path": "mcp_ws_listener.max_connections",
+          "key": "max_connections",
+          "label": "Max Connections",
+          "type": "int",
+          "help": "max concurrent inbound WS connections (default 100)",
+          "default": 100
+        }
+      ]
+    },
+    {
+      "path": "tls_interception",
+      "key": "tls_interception",
+      "label": "Tls Interception",
+      "type": "group",
+      "children": [
+        {
+          "path": "tls_interception.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "tls_interception.ca_cert",
+          "key": "ca_cert",
+          "label": "Ca Cert",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "tls_interception.ca_key",
+          "key": "ca_key",
+          "label": "Ca Key",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "tls_interception.passthrough_domains",
+          "key": "passthrough_domains",
+          "label": "Passthrough Domains",
+          "type": "list",
+          "default": [
+            "*.googlevideo.com"
+          ]
+        },
+        {
+          "path": "tls_interception.cert_ttl",
+          "key": "cert_ttl",
+          "label": "Cert Ttl",
+          "type": "string",
+          "default": "24h"
+        },
+        {
+          "path": "tls_interception.cert_cache_size",
+          "key": "cert_cache_size",
+          "label": "Cert Cache Size",
+          "type": "int",
+          "default": 10000
+        },
+        {
+          "path": "tls_interception.max_response_bytes",
+          "key": "max_response_bytes",
+          "label": "Max Response Bytes",
+          "type": "int",
+          "default": 5242880
+        }
+      ]
+    },
+    {
+      "path": "cross_request_detection",
+      "key": "cross_request_detection",
+      "label": "Cross Request Detection",
+      "type": "group",
+      "children": [
+        {
+          "path": "cross_request_detection.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "cross_request_detection.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "block, warn (applies to fragment DLP match)",
+          "default": ""
+        },
+        {
+          "path": "cross_request_detection.entropy_budget",
+          "key": "entropy_budget",
+          "label": "Entropy Budget",
+          "type": "group",
+          "children": [
+            {
+              "path": "cross_request_detection.entropy_budget.enabled",
+              "key": "enabled",
+              "label": "Enabled",
+              "type": "bool",
+              "default": false
+            },
+            {
+              "path": "cross_request_detection.entropy_budget.bits_per_window",
+              "key": "bits_per_window",
+              "label": "Bits Per Window",
+              "type": "float",
+              "help": "total Shannon entropy bits before signaling",
+              "default": 0
+            },
+            {
+              "path": "cross_request_detection.entropy_budget.window_minutes",
+              "key": "window_minutes",
+              "label": "Window Minutes",
+              "type": "int",
+              "help": "sliding window duration",
+              "default": 0
+            },
+            {
+              "path": "cross_request_detection.entropy_budget.action",
+              "key": "action",
+              "label": "Action",
+              "type": "string",
+              "help": "warn, block (entropy alone is medium-confidence)",
+              "default": ""
+            },
+            {
+              "path": "cross_request_detection.entropy_budget.exempt_domains",
+              "key": "exempt_domains",
+              "label": "Exempt Domains",
+              "type": "list",
+              "help": "domains excluded from entropy budget (e.g. API polling endpoints with tokens in URLs)",
+              "default": null
+            }
+          ]
+        },
+        {
+          "path": "cross_request_detection.fragment_reassembly",
+          "key": "fragment_reassembly",
+          "label": "Fragment Reassembly",
+          "type": "group",
+          "children": [
+            {
+              "path": "cross_request_detection.fragment_reassembly.enabled",
+              "key": "enabled",
+              "label": "Enabled",
+              "type": "bool",
+              "default": false
+            },
+            {
+              "path": "cross_request_detection.fragment_reassembly.max_buffer_bytes",
+              "key": "max_buffer_bytes",
+              "label": "Max Buffer Bytes",
+              "type": "int",
+              "help": "per-session rolling buffer cap",
+              "default": 0
+            },
+            {
+              "path": "cross_request_detection.fragment_reassembly.window_minutes",
+              "key": "window_minutes",
+              "label": "Window Minutes",
+              "type": "int",
+              "help": "fragment retention window (independent of entropy budget)",
+              "default": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "reverse_proxy",
+      "key": "reverse_proxy",
+      "label": "Reverse Proxy",
+      "type": "group",
+      "children": [
+        {
+          "path": "reverse_proxy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "reverse_proxy.listen",
+          "key": "listen",
+          "label": "Listen",
+          "type": "string",
+          "help": "listen address (e.g. \":8888\")",
+          "default": ""
+        },
+        {
+          "path": "reverse_proxy.upstream",
+          "key": "upstream",
+          "label": "Upstream",
+          "type": "string",
+          "help": "upstream URL (e.g. \"http://localhost:7899\")",
+          "default": ""
+        },
+        {
+          "path": "reverse_proxy.profile",
+          "key": "profile",
+          "label": "Profile",
+          "type": "string",
+          "help": "Profile selects a constrained reverse-proxy behavior. Empty (default) preserves the existing generic reverse proxy. \"submit\" tightens the listener for narrow internal POST submissions: method+path allowlist, per-listener trusted_upstream gate, body DLP enforced BEFORE forwarding, request timeout, and full upstream URL scan. Dial-time SSRF-safe transport is a follow-up hardening path, not part of this profile field by itself. `profile:` is distinct from top-level `mode:` (strict/balanced/audit). Top-level mode is enforcement posture; profile is listener shape.",
+          "default": ""
+        },
+        {
+          "path": "reverse_proxy.allowed_methods",
+          "key": "allowed_methods",
+          "label": "Allowed Methods",
+          "type": "list",
+          "help": "AllowedMethods constrains which HTTP methods the listener accepts. Empty in submit profile means \"POST only\" at request time.",
+          "default": null
+        },
+        {
+          "path": "reverse_proxy.allowed_paths",
+          "key": "allowed_paths",
+          "label": "Allowed Paths",
+          "type": "objlist",
+          "help": "AllowedPaths constrains which paths the listener accepts. v1 supports exact-match only. The matcher compares against the canonical decoded request path; raw paths containing encoded traversal (%2e%2e/), encoded slash/backslash (%2f, %5c), semicolon path params, or canonicalization changes are rejected at request time.",
+          "element": [
+            {
+              "path": "exact",
+              "key": "exact",
+              "label": "Exact",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "path": "reverse_proxy.trusted_upstream",
+          "key": "trusted_upstream",
+          "label": "Trusted Upstream",
+          "type": "group",
+          "help": "TrustedUpstream declares that the configured upstream host+port is the only destination this listener will reach. The host+port must exact-match the host+port parsed from Upstream. Required when profile is \"submit\".",
+          "children": [
+            {
+              "path": "reverse_proxy.trusted_upstream.host",
+              "key": "host",
+              "label": "Host",
+              "type": "string",
+              "default": ""
+            },
+            {
+              "path": "reverse_proxy.trusted_upstream.port",
+              "key": "port",
+              "label": "Port",
+              "type": "int",
+              "default": 0
+            },
+            {
+              "path": "reverse_proxy.trusted_upstream.reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string",
+              "default": ""
+            },
+            {
+              "path": "reverse_proxy.trusted_upstream.added",
+              "key": "added",
+              "label": "Added",
+              "type": "string",
+              "help": "RFC 3339 date (YYYY-MM-DD)",
+              "default": ""
+            },
+            {
+              "path": "reverse_proxy.trusted_upstream.expires",
+              "key": "expires",
+              "label": "Expires",
+              "type": "string",
+              "help": "RFC 3339 date (YYYY-MM-DD), optional",
+              "default": ""
+            }
+          ]
+        },
+        {
+          "path": "reverse_proxy.max_body_bytes",
+          "key": "max_body_bytes",
+          "label": "Max Body Bytes",
+          "type": "int",
+          "help": "MaxBodyBytes caps request body size at the listener level. Effective cap when used with body scanning is min(MaxBodyBytes, request_body_scanning.max_body_bytes); requests exceeding the cap return 413 BEFORE forwarding.",
+          "default": 0
+        },
+        {
+          "path": "reverse_proxy.request_timeout_seconds",
+          "key": "request_timeout_seconds",
+          "label": "Request Timeout Seconds",
+          "type": "int",
+          "help": "RequestTimeoutSeconds bounds total per-request time including upstream dial + body forwarding. Required positive when profile is \"submit\".",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "path": "scan_api",
+      "key": "scan_api",
+      "label": "Scan Api",
+      "type": "group",
+      "children": [
+        {
+          "path": "scan_api.listen",
+          "key": "listen",
+          "label": "Listen",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "scan_api.auth",
+          "key": "auth",
+          "label": "Auth",
+          "type": "group",
+          "children": [
+            {
+              "path": "scan_api.auth.bearer_tokens",
+              "key": "bearer_tokens",
+              "label": "Bearer Tokens",
+              "type": "list",
+              "default": null
+            }
+          ]
+        },
+        {
+          "path": "scan_api.rate_limit",
+          "key": "rate_limit",
+          "label": "Rate Limit",
+          "type": "group",
+          "children": [
+            {
+              "path": "scan_api.rate_limit.requests_per_minute",
+              "key": "requests_per_minute",
+              "label": "Requests Per Minute",
+              "type": "int",
+              "default": 600
+            },
+            {
+              "path": "scan_api.rate_limit.burst",
+              "key": "burst",
+              "label": "Burst",
+              "type": "int",
+              "default": 50
+            }
+          ]
+        },
+        {
+          "path": "scan_api.max_body_bytes",
+          "key": "max_body_bytes",
+          "label": "Max Body Bytes",
+          "type": "int",
+          "default": 1048576
+        },
+        {
+          "path": "scan_api.field_limits",
+          "key": "field_limits",
+          "label": "Field Limits",
+          "type": "group",
+          "children": [
+            {
+              "path": "scan_api.field_limits.url",
+              "key": "url",
+              "label": "Url",
+              "type": "int",
+              "default": 8192
+            },
+            {
+              "path": "scan_api.field_limits.text",
+              "key": "text",
+              "label": "Text",
+              "type": "int",
+              "default": 524288
+            },
+            {
+              "path": "scan_api.field_limits.content",
+              "key": "content",
+              "label": "Content",
+              "type": "int",
+              "default": 524288
+            },
+            {
+              "path": "scan_api.field_limits.arguments",
+              "key": "arguments",
+              "label": "Arguments",
+              "type": "int",
+              "default": 524288
+            }
+          ]
+        },
+        {
+          "path": "scan_api.timeouts",
+          "key": "timeouts",
+          "label": "Timeouts",
+          "type": "group",
+          "children": [
+            {
+              "path": "scan_api.timeouts.read",
+              "key": "read",
+              "label": "Read",
+              "type": "string",
+              "default": "2s"
+            },
+            {
+              "path": "scan_api.timeouts.write",
+              "key": "write",
+              "label": "Write",
+              "type": "string",
+              "default": "2s"
+            },
+            {
+              "path": "scan_api.timeouts.scan",
+              "key": "scan",
+              "label": "Scan",
+              "type": "string",
+              "default": "5s"
+            }
+          ]
+        },
+        {
+          "path": "scan_api.connection_limit",
+          "key": "connection_limit",
+          "label": "Connection Limit",
+          "type": "int",
+          "default": 100
+        },
+        {
+          "path": "scan_api.kinds",
+          "key": "kinds",
+          "label": "Kinds",
+          "type": "group",
+          "children": [
+            {
+              "path": "scan_api.kinds.url",
+              "key": "url",
+              "label": "Url",
+              "type": "bool",
+              "default": true
+            },
+            {
+              "path": "scan_api.kinds.dlp",
+              "key": "dlp",
+              "label": "Dlp",
+              "type": "bool",
+              "default": true
+            },
+            {
+              "path": "scan_api.kinds.prompt_injection",
+              "key": "prompt_injection",
+              "label": "Prompt Injection",
+              "type": "bool",
+              "default": true
+            },
+            {
+              "path": "scan_api.kinds.tool_call",
+              "key": "tool_call",
+              "label": "Tool Call",
+              "type": "bool",
+              "default": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "address_protection",
+      "key": "address_protection",
+      "label": "Address Protection",
+      "type": "group",
+      "children": [
+        {
+          "path": "address_protection.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "address_protection.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "block or warn (for poisoning/lookalike findings)",
+          "default": ""
+        },
+        {
+          "path": "address_protection.unknown_action",
+          "key": "unknown_action",
+          "label": "Unknown Action",
+          "type": "string",
+          "help": "allow, warn, or block (for valid addresses not in allowlist)",
+          "default": ""
+        },
+        {
+          "path": "address_protection.allowed_addresses",
+          "key": "allowed_addresses",
+          "label": "Allowed Addresses",
+          "type": "list",
+          "help": "global baseline allowlist (free tier)",
+          "default": null
+        },
+        {
+          "path": "address_protection.chains",
+          "key": "chains",
+          "label": "Chains",
+          "type": "group",
+          "children": [
+            {
+              "path": "address_protection.chains.eth",
+              "key": "eth",
+              "label": "Eth",
+              "type": "tristate",
+              "help": "nil = true when feature enabled",
+              "default": true
+            },
+            {
+              "path": "address_protection.chains.btc",
+              "key": "btc",
+              "label": "Btc",
+              "type": "tristate",
+              "help": "nil = true when feature enabled",
+              "default": true
+            },
+            {
+              "path": "address_protection.chains.sol",
+              "key": "sol",
+              "label": "Sol",
+              "type": "tristate",
+              "help": "nil = false (disabled by default, high FP risk from base58 regex)",
+              "default": false
+            },
+            {
+              "path": "address_protection.chains.bnb",
+              "key": "bnb",
+              "label": "Bnb",
+              "type": "tristate",
+              "help": "nil = true when feature enabled",
+              "default": true
+            }
+          ]
+        },
+        {
+          "path": "address_protection.similarity",
+          "key": "similarity",
+          "label": "Similarity",
+          "type": "group",
+          "children": [
+            {
+              "path": "address_protection.similarity.prefix_length",
+              "key": "prefix_length",
+              "label": "Prefix Length",
+              "type": "int",
+              "help": "default 4",
+              "default": 0
+            },
+            {
+              "path": "address_protection.similarity.suffix_length",
+              "key": "suffix_length",
+              "label": "Suffix Length",
+              "type": "int",
+              "help": "default 4",
+              "default": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "seed_phrase_detection",
+      "key": "seed_phrase_detection",
+      "label": "Seed Phrase Detection",
+      "type": "group",
+      "children": [
+        {
+          "path": "seed_phrase_detection.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "tristate",
+          "help": "nil = true (security default)",
+          "default": true
+        },
+        {
+          "path": "seed_phrase_detection.min_words",
+          "key": "min_words",
+          "label": "Min Words",
+          "type": "int",
+          "help": "minimum consecutive BIP-39 words (default 12)",
+          "default": 12
+        },
+        {
+          "path": "seed_phrase_detection.verify_checksum",
+          "key": "verify_checksum",
+          "label": "Verify Checksum",
+          "type": "tristate",
+          "help": "nil = true (validate BIP-39 checksum)",
+          "default": true
+        }
+      ]
+    },
+    {
+      "path": "rules",
+      "key": "rules",
+      "label": "Rules",
+      "type": "group",
+      "children": [
+        {
+          "path": "rules.rules_dir",
+          "key": "rules_dir",
+          "label": "Rules Dir",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "rules.min_confidence",
+          "key": "min_confidence",
+          "label": "Min Confidence",
+          "type": "string",
+          "default": "medium"
+        },
+        {
+          "path": "rules.include_experimental",
+          "key": "include_experimental",
+          "label": "Include Experimental",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "rules.disabled",
+          "key": "disabled",
+          "label": "Disabled",
+          "type": "list",
+          "default": null
+        },
+        {
+          "path": "rules.trusted_keys",
+          "key": "trusted_keys",
+          "label": "Trusted Keys",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "name",
+              "key": "name",
+              "label": "Name",
+              "type": "string"
+            },
+            {
+              "path": "public_key",
+              "key": "public_key",
+              "label": "Public Key",
+              "type": "string",
+              "help": "64 lowercase hex chars"
+            },
+            {
+              "path": "tier",
+              "key": "tier",
+              "label": "Tier",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "file_sentry",
+      "key": "file_sentry",
+      "label": "File Sentry",
+      "type": "group",
+      "children": [
+        {
+          "path": "file_sentry.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "file_sentry.best_effort",
+          "key": "best_effort",
+          "label": "Best Effort",
+          "type": "bool",
+          "help": "degrade gracefully when watch setup fails (e.g. inotify exhaustion)",
+          "default": false
+        },
+        {
+          "path": "file_sentry.watch_paths",
+          "key": "watch_paths",
+          "label": "Watch Paths",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "file_sentry.scan_content",
+          "key": "scan_content",
+          "label": "Scan Content",
+          "type": "tristate",
+          "help": "nil = default true"
+        },
+        {
+          "path": "file_sentry.ignore_patterns",
+          "key": "ignore_patterns",
+          "label": "Ignore Patterns",
+          "type": "list",
+          "help": "glob patterns to skip",
+          "default": null
+        },
+        {
+          "path": "file_sentry.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "Action selects the enforcement response when an agent-attributed write matches a DLP pattern. \"warn\" logs the finding and records a metric (current default). \"block\" additionally cancels the proxy context so the MCP child terminates, preventing the agent from continuing after a detected leak. Non-agent writes (editor saves, build output) never trigger the block path. Empty normalizes to \"warn\".",
+          "default": ""
+        },
+        {
+          "path": "file_sentry.max_file_bytes",
+          "key": "max_file_bytes",
+          "label": "Max File Bytes",
+          "type": "int",
+          "help": "MaxFileBytes caps the size of a watched file the content scanner will read. Files larger than this are skipped to bound memory use, but the skip is surfaced via the watcher's error callback rather than silently dropped, so an operator can see that an oversized file went uninspected. Zero (the default) means the built-in default (10 MiB). Negative is rejected at validation time.",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "path": "sandbox",
+      "key": "sandbox",
+      "label": "Sandbox",
+      "type": "group",
+      "children": [
+        {
+          "path": "sandbox.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "sandbox.strict",
+          "key": "strict",
+          "label": "Strict",
+          "type": "bool",
+          "help": "error if any containment layer is unavailable",
+          "default": false
+        },
+        {
+          "path": "sandbox.best_effort",
+          "key": "best_effort",
+          "label": "Best Effort",
+          "type": "bool",
+          "help": "degrade gracefully when namespace isolation unavailable (e.g. containers)",
+          "default": false
+        },
+        {
+          "path": "sandbox.workspace",
+          "key": "workspace",
+          "label": "Workspace",
+          "type": "string",
+          "help": "agent working dir; resolved to absolute at startup",
+          "default": ""
+        },
+        {
+          "path": "sandbox.filesystem",
+          "key": "filesystem",
+          "label": "Filesystem",
+          "type": "opaque",
+          "advanced_only": true
+        }
+      ]
+    },
+    {
+      "path": "flight_recorder",
+      "key": "flight_recorder",
+      "label": "Flight Recorder",
+      "type": "group",
+      "children": [
+        {
+          "path": "flight_recorder.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "flight_recorder.dir",
+          "key": "dir",
+          "label": "Dir",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "flight_recorder.checkpoint_interval",
+          "key": "checkpoint_interval",
+          "label": "Checkpoint Interval",
+          "type": "int",
+          "help": "entries between signed checkpoints (default 1000)",
+          "default": 1000
+        },
+        {
+          "path": "flight_recorder.retention_days",
+          "key": "retention_days",
+          "label": "Retention Days",
+          "type": "int",
+          "help": "auto-expire after N days (0=forever)",
+          "default": 0
+        },
+        {
+          "path": "flight_recorder.redact",
+          "key": "redact",
+          "label": "Redact",
+          "type": "bool",
+          "help": "DLP on evidence before commit (default true)",
+          "default": true
+        },
+        {
+          "path": "flight_recorder.sign_checkpoints",
+          "key": "sign_checkpoints",
+          "label": "Sign Checkpoints",
+          "type": "bool",
+          "help": "Ed25519 sign checkpoints (default true)",
+          "default": true
+        },
+        {
+          "path": "flight_recorder.max_entries_per_file",
+          "key": "max_entries_per_file",
+          "label": "Max Entries Per File",
+          "type": "int",
+          "help": "rotate files (default 10000)",
+          "default": 10000
+        },
+        {
+          "path": "flight_recorder.file_mode",
+          "key": "file_mode",
+          "label": "File Mode",
+          "type": "string",
+          "help": "evidence file permissions: 0600, 0640, or 0660 (default 0600)",
+          "default": 0
+        },
+        {
+          "path": "flight_recorder.raw_escrow",
+          "key": "raw_escrow",
+          "label": "Raw Escrow",
+          "type": "bool",
+          "help": "encrypted raw detail sidecar (default false)",
+          "default": false
+        },
+        {
+          "path": "flight_recorder.escrow_public_key",
+          "key": "escrow_public_key",
+          "label": "Escrow Public Key",
+          "type": "string",
+          "help": "X25519 public key for raw escrow encryption",
+          "default": ""
+        },
+        {
+          "path": "flight_recorder.signing_key_path",
+          "key": "signing_key_path",
+          "label": "Signing Key Path",
+          "type": "string",
+          "help": "Ed25519 private key for checkpoint signing and action receipts",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "path": "mcp_binary_integrity",
+      "key": "mcp_binary_integrity",
+      "label": "Mcp Binary Integrity",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_binary_integrity.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_binary_integrity.manifest_path",
+          "key": "manifest_path",
+          "label": "Manifest Path",
+          "type": "string",
+          "help": "path to hash manifest JSON",
+          "default": ""
+        },
+        {
+          "path": "mcp_binary_integrity.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "\"block\" or \"warn\" (default \"warn\")",
+          "default": "warn"
+        },
+        {
+          "path": "mcp_binary_integrity.require_signature",
+          "key": "require_signature",
+          "label": "Require Signature",
+          "type": "bool",
+          "help": "verify detached manifest signature before use",
+          "default": false
+        },
+        {
+          "path": "mcp_binary_integrity.signature_path",
+          "key": "signature_path",
+          "label": "Signature Path",
+          "type": "string",
+          "help": "optional; default manifest_path + .sig",
+          "default": ""
+        },
+        {
+          "path": "mcp_binary_integrity.trusted_signer",
+          "key": "trusted_signer",
+          "label": "Trusted Signer",
+          "type": "string",
+          "help": "keystore identity used to verify manifest signature",
+          "default": ""
+        },
+        {
+          "path": "mcp_binary_integrity.keystore",
+          "key": "keystore",
+          "label": "Keystore",
+          "type": "string",
+          "help": "optional; default ~/.pipelock",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "path": "mcp_tool_provenance",
+      "key": "mcp_tool_provenance",
+      "label": "Mcp Tool Provenance",
+      "type": "group",
+      "children": [
+        {
+          "path": "mcp_tool_provenance.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mcp_tool_provenance.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "\"block\" or \"warn\" for missing provenance (default \"warn\")",
+          "default": "warn"
+        },
+        {
+          "path": "mcp_tool_provenance.mode",
+          "key": "mode",
+          "label": "Mode",
+          "type": "enum",
+          "help": "\"pipelock\", \"sigstore\", \"any\" (default \"pipelock\")",
+          "default": "pipelock",
+          "enum": [
+            "pipelock",
+            "sigstore",
+            "any"
+          ]
+        },
+        {
+          "path": "mcp_tool_provenance.trusted_keys",
+          "key": "trusted_keys",
+          "label": "Trusted Keys",
+          "type": "list",
+          "help": "Ed25519 public keys (pipelock mode)",
+          "default": null
+        },
+        {
+          "path": "mcp_tool_provenance.trusted_issuers",
+          "key": "trusted_issuers",
+          "label": "Trusted Issuers",
+          "type": "list",
+          "help": "OIDC issuers (sigstore mode)",
+          "default": null
+        },
+        {
+          "path": "mcp_tool_provenance.trusted_subjects",
+          "key": "trusted_subjects",
+          "label": "Trusted Subjects",
+          "type": "list",
+          "help": "OIDC subjects (sigstore mode)",
+          "default": null
+        },
+        {
+          "path": "mcp_tool_provenance.offline_only",
+          "key": "offline_only",
+          "label": "Offline Only",
+          "type": "bool",
+          "help": "never call Sigstore APIs (default true)",
+          "default": true
+        }
+      ]
+    },
+    {
+      "path": "behavioral_baseline",
+      "key": "behavioral_baseline",
+      "label": "Behavioral Baseline",
+      "type": "group",
+      "children": [
+        {
+          "path": "behavioral_baseline.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "behavioral_baseline.learning_window",
+          "key": "learning_window",
+          "label": "Learning Window",
+          "type": "int",
+          "help": "sessions to observe (default 10)",
+          "default": 10
+        },
+        {
+          "path": "behavioral_baseline.deviation_action",
+          "key": "deviation_action",
+          "label": "Deviation Action",
+          "type": "string",
+          "help": "\"warn\", \"ask\", \"block\" (default \"warn\")",
+          "default": "warn"
+        },
+        {
+          "path": "behavioral_baseline.profile_dir",
+          "key": "profile_dir",
+          "label": "Profile Dir",
+          "type": "string",
+          "help": "where to save/load profiles",
+          "default": ""
+        },
+        {
+          "path": "behavioral_baseline.auto_ratify",
+          "key": "auto_ratify",
+          "label": "Auto Ratify",
+          "type": "bool",
+          "help": "skip operator approval (default false, DANGEROUS)",
+          "default": false
+        },
+        {
+          "path": "behavioral_baseline.sensitivity_sigma",
+          "key": "sensitivity_sigma",
+          "label": "Sensitivity Sigma",
+          "type": "float",
+          "help": "stddev multiplier (default 2.0)",
+          "default": 2
+        },
+        {
+          "path": "behavioral_baseline.lock_dimensions",
+          "key": "lock_dimensions",
+          "label": "Lock Dimensions",
+          "type": "list",
+          "help": "metrics to enforce (default: all)",
+          "default": null
+        },
+        {
+          "path": "behavioral_baseline.poison_resistance",
+          "key": "poison_resistance",
+          "label": "Poison Resistance",
+          "type": "bool",
+          "help": "trim outlier sessions (default true)",
+          "default": true
+        },
+        {
+          "path": "behavioral_baseline.seasonality_mode",
+          "key": "seasonality_mode",
+          "label": "Seasonality Mode",
+          "type": "enum",
+          "help": "\"none\", \"labeled\", \"time\" (default \"none\")",
+          "default": "none",
+          "enum": [
+            "none",
+            "labeled",
+            "time"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "airlock",
+      "key": "airlock",
+      "label": "Airlock",
+      "type": "group",
+      "children": [
+        {
+          "path": "airlock.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "airlock.triggers",
+          "key": "triggers",
+          "label": "Triggers",
+          "type": "group",
+          "children": [
+            {
+              "path": "airlock.triggers.on_elevated",
+              "key": "on_elevated",
+              "label": "On Elevated",
+              "type": "string",
+              "help": "none|soft|hard|drain",
+              "default": "none"
+            },
+            {
+              "path": "airlock.triggers.on_high",
+              "key": "on_high",
+              "label": "On High",
+              "type": "string",
+              "help": "none|soft|hard|drain",
+              "default": "soft"
+            },
+            {
+              "path": "airlock.triggers.on_critical",
+              "key": "on_critical",
+              "label": "On Critical",
+              "type": "string",
+              "help": "none|soft|hard|drain",
+              "default": "hard"
+            },
+            {
+              "path": "airlock.triggers.on_severity",
+              "key": "on_severity",
+              "label": "On Severity",
+              "type": "string",
+              "help": "scanner severity threshold (\"critical\", \"high\", or \"\")",
+              "default": ""
+            },
+            {
+              "path": "airlock.triggers.anomaly_count",
+              "key": "anomaly_count",
+              "label": "Anomaly Count",
+              "type": "int",
+              "help": "N anomalies in window triggers soft (0 = disabled)",
+              "default": 0
+            },
+            {
+              "path": "airlock.triggers.anomaly_window_minutes",
+              "key": "anomaly_window_minutes",
+              "label": "Anomaly Window Minutes",
+              "type": "int",
+              "help": "rolling window for anomaly count",
+              "default": 5
+            }
+          ]
+        },
+        {
+          "path": "airlock.timers",
+          "key": "timers",
+          "label": "Timers",
+          "type": "group",
+          "children": [
+            {
+              "path": "airlock.timers.soft_minutes",
+              "key": "soft_minutes",
+              "label": "Soft Minutes",
+              "type": "int",
+              "default": 10
+            },
+            {
+              "path": "airlock.timers.hard_minutes",
+              "key": "hard_minutes",
+              "label": "Hard Minutes",
+              "type": "int",
+              "default": 5
+            },
+            {
+              "path": "airlock.timers.drain_minutes",
+              "key": "drain_minutes",
+              "label": "Drain Minutes",
+              "type": "int",
+              "default": 2
+            },
+            {
+              "path": "airlock.timers.drain_timeout_seconds",
+              "key": "drain_timeout_seconds",
+              "label": "Drain Timeout Seconds",
+              "type": "int",
+              "default": 30
+            }
+          ]
+        },
+        {
+          "path": "airlock.tool_freeze",
+          "key": "tool_freeze",
+          "label": "Tool Freeze",
+          "type": "group",
+          "children": [
+            {
+              "path": "airlock.tool_freeze.snapshot_on_entry",
+              "key": "snapshot_on_entry",
+              "label": "Snapshot On Entry",
+              "type": "bool",
+              "help": "capture immutable tool set on hard entry",
+              "default": true
+            },
+            {
+              "path": "airlock.tool_freeze.allow_cached_tools",
+              "key": "allow_cached_tools",
+              "label": "Allow Cached Tools",
+              "type": "bool",
+              "help": "allow calls to tools in the frozen snapshot",
+              "default": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "browser_shield",
+      "key": "browser_shield",
+      "label": "Browser Shield",
+      "type": "group",
+      "children": [
+        {
+          "path": "browser_shield.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "browser_shield.strictness",
+          "key": "strictness",
+          "label": "Strictness",
+          "type": "string",
+          "help": "minimal|standard|aggressive",
+          "default": "standard"
+        },
+        {
+          "path": "browser_shield.max_shield_bytes",
+          "key": "max_shield_bytes",
+          "label": "Max Shield Bytes",
+          "type": "int",
+          "help": "size limit for shielding",
+          "default": 5242880
+        },
+        {
+          "path": "browser_shield.oversize_action",
+          "key": "oversize_action",
+          "label": "Oversize Action",
+          "type": "string",
+          "help": "block|scan_head|warn",
+          "default": "scan_head"
+        },
+        {
+          "path": "browser_shield.exempt_domains",
+          "key": "exempt_domains",
+          "label": "Exempt Domains",
+          "type": "list",
+          "help": "hostnames only (validated, no paths)",
+          "default": [
+            "challenges.cloudflare.com",
+            "developer.mozilla.org",
+            "docs.github.com",
+            "github.dev",
+            "go.dev",
+            "hcaptcha.com",
+            "pkg.go.dev",
+            "vscode.dev",
+            "www.recaptcha.net"
+          ]
+        },
+        {
+          "path": "browser_shield.strip_extension_probing",
+          "key": "strip_extension_probing",
+          "label": "Strip Extension Probing",
+          "type": "bool",
+          "help": "strip chrome-extension:// + runtime shims",
+          "default": true
+        },
+        {
+          "path": "browser_shield.strip_hidden_traps",
+          "key": "strip_hidden_traps",
+          "label": "Strip Hidden Traps",
+          "type": "bool",
+          "help": "strip hidden DOM elements with instructions",
+          "default": true
+        },
+        {
+          "path": "browser_shield.strip_tracking_pixels",
+          "key": "strip_tracking_pixels",
+          "label": "Strip Tracking Pixels",
+          "type": "bool",
+          "help": "strip 1x1 images and beacon calls",
+          "default": true
+        },
+        {
+          "path": "browser_shield.inject_fingerprint_shims",
+          "key": "inject_fingerprint_shims",
+          "label": "Inject Fingerprint Shims",
+          "type": "bool",
+          "help": "canvas/WebGL/audio defense shims",
+          "default": false
+        },
+        {
+          "path": "browser_shield.tracking_domains",
+          "key": "tracking_domains",
+          "label": "Tracking Domains",
+          "type": "list",
+          "help": "hostnames (validated same as exempt)",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "media_policy",
+      "key": "media_policy",
+      "label": "Media Policy",
+      "type": "group",
+      "children": [
+        {
+          "path": "media_policy.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "tristate",
+          "help": "Enabled is the master switch for media policy enforcement. nil = true (default enabled). When false, media responses pass through unchanged and no exposure events are emitted.",
+          "default": true
+        },
+        {
+          "path": "media_policy.strip_images",
+          "key": "strip_images",
+          "label": "Strip Images",
+          "type": "tristate",
+          "help": "StripImages rejects all image/* Content-Type responses when true. nil = false (default: allow images, strip metadata). Set true for strict-mode agents that should never receive any image content.",
+          "default": false
+        },
+        {
+          "path": "media_policy.strip_audio",
+          "key": "strip_audio",
+          "label": "Strip Audio",
+          "type": "tristate",
+          "help": "StripAudio rejects all audio/* Content-Type responses when true. nil = true (default: reject). Agents rarely need audio, and audio is a plausible prompt-injection carrier through ASR transcription.",
+          "default": true
+        },
+        {
+          "path": "media_policy.strip_video",
+          "key": "strip_video",
+          "label": "Strip Video",
+          "type": "tristate",
+          "help": "StripVideo rejects all video/* Content-Type responses when true. nil = true (default: reject). Same rationale as StripAudio plus frame extraction cost.",
+          "default": true
+        },
+        {
+          "path": "media_policy.allowed_image_types",
+          "key": "allowed_image_types",
+          "label": "Allowed Image Types",
+          "type": "list",
+          "help": "AllowedImageTypes limits which image media types pass when StripImages is false. Empty means the default set (PNG, JPEG). SVG is intentionally excluded because SVG is active content handled by the browser shield pipeline, not a static image.",
+          "default": null
+        },
+        {
+          "path": "media_policy.strip_image_metadata",
+          "key": "strip_image_metadata",
+          "label": "Strip Image Metadata",
+          "type": "tristate",
+          "help": "StripImageMetadata surgically removes EXIF/XMP/IPTC/ICC metadata from allowed image responses without touching pixel data. nil = true (default: strip). Uses byte-level marker/chunk parsing, never decode + re-encode, so the forwarded image is pixel-identical.",
+          "default": true
+        },
+        {
+          "path": "media_policy.max_image_bytes",
+          "key": "max_image_bytes",
+          "label": "Max Image Bytes",
+          "type": "int",
+          "help": "MaxImageBytes rejects image responses larger than this size in bytes, measured at ingest before any parsing. Protects against decompression bombs and excessive memory pressure. 0 means use DefaultMaxImageBytes.",
+          "default": 0
+        },
+        {
+          "path": "media_policy.log_media_exposure",
+          "key": "log_media_exposure",
+          "label": "Log Media Exposure",
+          "type": "tristate",
+          "help": "LogMediaExposure emits a \"media_exposure\" event for every allowed media response. nil = true (default: log). These events feed the upcoming taint/authority policy system as exposure signals.",
+          "default": true
+        }
+      ]
+    },
+    {
+      "path": "a2a_scanning",
+      "key": "a2a_scanning",
+      "label": "A2a Scanning",
+      "type": "group",
+      "children": [
+        {
+          "path": "a2a_scanning.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "a2a_scanning.action",
+          "key": "action",
+          "label": "Action",
+          "type": "string",
+          "help": "block, warn",
+          "default": "warn"
+        },
+        {
+          "path": "a2a_scanning.scan_agent_cards",
+          "key": "scan_agent_cards",
+          "label": "Scan Agent Cards",
+          "type": "bool",
+          "help": "Agent Card skill poisoning",
+          "default": true
+        },
+        {
+          "path": "a2a_scanning.detect_card_drift",
+          "key": "detect_card_drift",
+          "label": "Detect Card Drift",
+          "type": "bool",
+          "help": "rug-pull detection on Agent Cards",
+          "default": true
+        },
+        {
+          "path": "a2a_scanning.session_smuggling_detection",
+          "key": "session_smuggling_detection",
+          "label": "Session Smuggling Detection",
+          "type": "bool",
+          "help": "contextId tracking",
+          "default": true
+        },
+        {
+          "path": "a2a_scanning.max_context_messages",
+          "key": "max_context_messages",
+          "label": "Max Context Messages",
+          "type": "int",
+          "help": "per-context message cap (default 100)",
+          "default": 100
+        },
+        {
+          "path": "a2a_scanning.max_contexts",
+          "key": "max_contexts",
+          "label": "Max Contexts",
+          "type": "int",
+          "help": "total tracked contexts (default 1000)",
+          "default": 1000
+        },
+        {
+          "path": "a2a_scanning.scan_raw_parts",
+          "key": "scan_raw_parts",
+          "label": "Scan Raw Parts",
+          "type": "bool",
+          "help": "decode text-like Part.raw",
+          "default": true
+        },
+        {
+          "path": "a2a_scanning.max_raw_size",
+          "key": "max_raw_size",
+          "label": "Max Raw Size",
+          "type": "int",
+          "help": "encoded size cap for Part.raw decode (default 1MB)",
+          "default": 1048576
+        }
+      ]
+    },
+    {
+      "path": "taint",
+      "key": "taint",
+      "label": "Taint",
+      "type": "group",
+      "children": [
+        {
+          "path": "taint.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "taint.allowlisted_domains",
+          "key": "allowlisted_domains",
+          "label": "Allowlisted Domains",
+          "type": "list",
+          "default": [
+            "docs.anthropic.com",
+            "docs.github.com",
+            "developer.mozilla.org"
+          ]
+        },
+        {
+          "path": "taint.protected_paths",
+          "key": "protected_paths",
+          "label": "Protected Paths",
+          "type": "list",
+          "default": [
+            "*/auth/*",
+            "*/security/*",
+            "*/.github/workflows/*",
+            "*/.env*",
+            "*/secrets*",
+            "*/policy*",
+            "*/sandbox*"
+          ]
+        },
+        {
+          "path": "taint.elevated_paths",
+          "key": "elevated_paths",
+          "label": "Elevated Paths",
+          "type": "list",
+          "default": [
+            "*/config/*",
+            "*/middleware*"
+          ]
+        },
+        {
+          "path": "taint.trust_overrides",
+          "key": "trust_overrides",
+          "label": "Trust Overrides",
+          "type": "objlist",
+          "element": [
+            {
+              "path": "scope",
+              "key": "scope",
+              "label": "Scope",
+              "type": "string"
+            },
+            {
+              "path": "source_match",
+              "key": "source_match",
+              "label": "Source Match",
+              "type": "string"
+            },
+            {
+              "path": "action_match",
+              "key": "action_match",
+              "label": "Action Match",
+              "type": "string"
+            },
+            {
+              "path": "expires_at",
+              "key": "expires_at",
+              "label": "Expires At",
+              "type": "opaque",
+              "advanced_only": true
+            },
+            {
+              "path": "granted_by",
+              "key": "granted_by",
+              "label": "Granted By",
+              "type": "string"
+            },
+            {
+              "path": "reason",
+              "key": "reason",
+              "label": "Reason",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "path": "taint.policy",
+          "key": "policy",
+          "label": "Policy",
+          "type": "enum",
+          "help": "strict, balanced, permissive",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "permissive"
+          ]
+        },
+        {
+          "path": "taint.recent_sources",
+          "key": "recent_sources",
+          "label": "Recent Sources",
+          "type": "int",
+          "help": "bounded recent source history",
+          "default": 10
+        }
+      ]
+    },
+    {
+      "path": "mediation_envelope",
+      "key": "mediation_envelope",
+      "label": "Mediation Envelope",
+      "type": "group",
+      "children": [
+        {
+          "path": "mediation_envelope.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "mediation_envelope.sign",
+          "key": "sign",
+          "label": "Sign",
+          "type": "bool",
+          "help": "Sign enables RFC 9421 HTTP Message Signatures on outbound mediated requests. HTTP only - MCP stdio cannot be signed in band. Default false; explicit opt-in. When true, SigningKeyPath is required and must load as an Ed25519 private key at startup and on every hot reload. Reload failures abort the reload rather than silently downgrading to unsigned.",
+          "default": false
+        },
+        {
+          "path": "mediation_envelope.signing_key_path",
+          "key": "signing_key_path",
+          "label": "Signing Key Path",
+          "type": "string",
+          "help": "SigningKeyPath is the filesystem path to an Ed25519 private key in the format accepted by signing.LoadPrivateKeyFile (the same format used by receipt signing and flight recorder checkpoints). The key is loaded fresh on every reload to support file rotation. Capability separation: this path MUST live in pipelock's own privilege domain; the agent must not have read access.",
+          "default": ""
+        },
+        {
+          "path": "mediation_envelope.key_id",
+          "key": "key_id",
+          "label": "Key Id",
+          "type": "string",
+          "help": "KeyID is the opaque identifier emitted as the Signature-Input keyid parameter. Verifiers use it to look up the corresponding public key. Defaults to \"pipelock-mediation-v1\" when sign is true and this field is empty.",
+          "default": ""
+        },
+        {
+          "path": "mediation_envelope.signed_components",
+          "key": "signed_components",
+          "label": "Signed Components",
+          "type": "list",
+          "help": "SignedComponents declares the maximal RFC 9421 component list that pipelock will sign. Supported values are \"@method\", \"@target-uri\", \"@authority\", \"content-digest\", and \"pipelock-mediation\". At request time the signer builds a dynamic subset: content-digest is dropped on body-less requests, and pipelock-mediation is skipped when the header is absent. Defaults to [\"@method\", \"@target-uri\", \"content-digest\", \"pipelock-mediation\"] when sign is true and this slice is empty.",
+          "default": null
+        },
+        {
+          "path": "mediation_envelope.created_skew_seconds",
+          "key": "created_skew_seconds",
+          "label": "Created Skew Seconds",
+          "type": "int",
+          "help": "CreatedSkewSeconds is the tolerance (in seconds) applied to the created parameter on inbound verification. Not used on the outbound signing path today but stored here so the config surface is stable when inbound verify lands in a follow-up. Defaults to 60 when sign is true and this field is zero.",
+          "default": 0
+        },
+        {
+          "path": "mediation_envelope.max_body_bytes",
+          "key": "max_body_bytes",
+          "label": "Max Body Bytes",
+          "type": "int",
+          "help": "MaxBodyBytes caps the amount of request body the signer will buffer to compute Content-Digest when no upstream scanner has already buffered it. Defaults to 1 MiB when sign is true and this field is zero. Requests exceeding the cap are signed without content-digest (the component is dropped from the declared list for that request) rather than failing.",
+          "default": 0
+        },
+        {
+          "path": "mediation_envelope.signature_expires",
+          "key": "signature_expires",
+          "label": "Signature Expires",
+          "type": "string",
+          "help": "SignatureExpires is the per-signature lifetime emitted by the outbound signer (Go duration string, e.g. \"5m\"). Empty falls back to the verifier's replay-cache window so the cache always outlives the signature. The validator rejects values larger than verify_inbound.replay_cache.window because a longer-lived signature would be replayable after its nonce was evicted from the cache.",
+          "default": ""
+        },
+        {
+          "path": "mediation_envelope.actor_format",
+          "key": "actor_format",
+          "label": "Actor Format",
+          "type": "string",
+          "help": "ActorFormat controls emitted envelope actor values and inbound verification strictness. \"spiffe\" emits SPIFFE IDs and requires inbound verified actors to be SPIFFE IDs. \"legacy\" preserves the older free-form actor string for migration.",
+          "default": ""
+        },
+        {
+          "path": "mediation_envelope.trust_domain",
+          "key": "trust_domain",
+          "label": "Trust Domain",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "mediation_envelope.verify_inbound",
+          "key": "verify_inbound",
+          "label": "Verify Inbound",
+          "type": "group",
+          "help": "VerifyInbound requires incoming requests to carry a valid signed mediation envelope from a trusted signer before pipelock strips and replaces its own outbound envelope.",
+          "children": [
+            {
+              "path": "mediation_envelope.verify_inbound.enabled",
+              "key": "enabled",
+              "label": "Enabled",
+              "type": "bool",
+              "default": false
+            },
+            {
+              "path": "mediation_envelope.verify_inbound.trust_list",
+              "key": "trust_list",
+              "label": "Trust List",
+              "type": "objlist",
+              "element": [
+                {
+                  "path": "key_id",
+                  "key": "key_id",
+                  "label": "Key Id",
+                  "type": "string"
+                },
+                {
+                  "path": "public_key",
+                  "key": "public_key",
+                  "label": "Public Key",
+                  "type": "string"
+                },
+                {
+                  "path": "well_known_url",
+                  "key": "well_known_url",
+                  "label": "Well Known Url",
+                  "type": "string"
+                },
+                {
+                  "path": "trust_domains",
+                  "key": "trust_domains",
+                  "label": "Trust Domains",
+                  "type": "list",
+                  "help": "TrustDomains, when non-empty, restricts which actor trust domains a signed envelope may claim under this key_id. Empty means \"any trust domain\" - the v2.4 migration default that lets a single partner key sign for any actor. Production deployments should pin each key to the specific federation peer's trust domain(s) so a compromised partner cannot impersonate another."
+                }
+              ]
+            },
+            {
+              "path": "mediation_envelope.verify_inbound.replay_cache",
+              "key": "replay_cache",
+              "label": "Replay Cache",
+              "type": "group",
+              "children": [
+                {
+                  "path": "mediation_envelope.verify_inbound.replay_cache.window",
+                  "key": "window",
+                  "label": "Window",
+                  "type": "string",
+                  "default": ""
+                },
+                {
+                  "path": "mediation_envelope.verify_inbound.replay_cache.max_entries",
+                  "key": "max_entries",
+                  "label": "Max Entries",
+                  "type": "int",
+                  "default": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "redaction",
+      "key": "redaction",
+      "label": "Redaction",
+      "type": "opaque",
+      "advanced_only": true
+    },
+    {
+      "path": "learn",
+      "key": "learn",
+      "label": "Learn",
+      "type": "group",
+      "children": [
+        {
+          "path": "learn.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "learn.capture_dir",
+          "key": "capture_dir",
+          "label": "Capture Dir",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "learn.privacy",
+          "key": "privacy",
+          "label": "Privacy",
+          "type": "group",
+          "children": [
+            {
+              "path": "learn.privacy.salt_source",
+              "key": "salt_source",
+              "label": "Salt Source",
+              "type": "string",
+              "help": "SaltSource is a single string with an auto-detected resolver: \"${VAR}\"           -\u003e env var lookup at runtime \"file:/abs/path\"   -\u003e file contents at runtime (path validated at config-load) \"\"                 -\u003e empty (fail-closed when classification needs salt) anything else      -\u003e literal salt value (test/dev only) No salt is stored in this string after Normalize; the resolver runs at observation time, not config-load time.",
+              "default": ""
+            },
+            {
+              "path": "learn.privacy.public_allowlist_default",
+              "key": "public_allowlist_default",
+              "label": "Public Allowlist Default",
+              "type": "bool",
+              "help": "PublicAllowlistDefault toggles whether the privacy enforcer ships a canonical seed public-allowlist (common public APIs, well-known public domains) when the operator's explicit allowlist is empty. Default true. Security-sensitive boolean: 6-state default-true tests required (see CLAUDE.md's security invariants section).",
+              "default": true
+            }
+          ]
+        },
+        {
+          "path": "learn.inference",
+          "key": "inference",
+          "label": "Inference",
+          "type": "group",
+          "children": [
+            {
+              "path": "learn.inference.floors",
+              "key": "floors",
+              "label": "Floors",
+              "type": "group",
+              "children": [
+                {
+                  "path": "learn.inference.floors.min_sessions",
+                  "key": "min_sessions",
+                  "label": "Min Sessions",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.floors.min_events",
+                  "key": "min_events",
+                  "label": "Min Events",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.floors.min_windows",
+                  "key": "min_windows",
+                  "label": "Min Windows",
+                  "type": "int",
+                  "default": 0
+                }
+              ]
+            },
+            {
+              "path": "learn.inference.normalization",
+              "key": "normalization",
+              "label": "Normalization",
+              "type": "group",
+              "children": [
+                {
+                  "path": "learn.inference.normalization.algorithm",
+                  "key": "algorithm",
+                  "label": "Algorithm",
+                  "type": "string",
+                  "help": "Algorithm names the normalization algorithm. The only accepted value is LearnNormalizationAlgorithmV1 today; a future algorithm bump will require schema changes in the inference package itself.",
+                  "default": ""
+                },
+                {
+                  "path": "learn.inference.normalization.min_events",
+                  "key": "min_events",
+                  "label": "Min Events",
+                  "type": "int",
+                  "help": "MinEvents is the minimum number of events that must be observed in a (host, method, parent_prefix) bucket before any segment position in that bucket is eligible for collapse. Default 10.",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.normalization.min_distinct_values",
+                  "key": "min_distinct_values",
+                  "label": "Min Distinct Values",
+                  "type": "int",
+                  "help": "MinDistinctValues is the minimum number of distinct segment values at a given index before that position is eligible for collapse. Default 5.",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.normalization.entropy_threshold_bits",
+                  "key": "entropy_threshold_bits",
+                  "label": "Entropy Threshold Bits",
+                  "type": "float",
+                  "help": "EntropyThresholdBits is the minimum frequency-weighted Shannon entropy (in bits) at a given index for that position to be collapsed. Below this threshold the segment retains as a literal. Default 3.0.",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.normalization.reserved_segments_extra",
+                  "key": "reserved_segments_extra",
+                  "label": "Reserved Segments Extra",
+                  "type": "list",
+                  "help": "ReservedSegmentsExtra is the operator-supplied extension to the canonical reserved-segment blocklist (admin/auth/... in normalize.CanonicalReservedSegments()). Empty by default. Operators may extend but cannot remove from the canonical list.",
+                  "default": null
+                },
+                {
+                  "path": "learn.inference.normalization.cardinality_cap_per_host",
+                  "key": "cardinality_cap_per_host",
+                  "label": "Cardinality Cap Per Host",
+                  "type": "int",
+                  "help": "CardinalityCapPerHost is the maximum number of distinct path-families per host before overflow is bucketed into the _other tail. Default 1000.",
+                  "default": 0
+                },
+                {
+                  "path": "learn.inference.normalization.tail_promotion_block_pct",
+                  "key": "tail_promotion_block_pct",
+                  "label": "Tail Promotion Block Pct",
+                  "type": "float",
+                  "help": "TailPromotionBlockPct is the percentage of host-event traffic that, if represented in the _other tail bucket, blocks promotion of the contract without explicit accept_tail: true. Default 5.0 (i.e., a contract with \u003e 5% of events in tail requires operator acknowledgement). Strict greater-than: a tail at exactly the threshold does not block.",
+                  "default": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "learn_lock",
+      "key": "learn_lock",
+      "label": "Learn Lock",
+      "type": "group",
+      "help": "operational lock-runtime config, excluded from canonical policy hash",
+      "children": [
+        {
+          "path": "learn_lock.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "help": "Enabled toggles the lock runtime. Default false. Operators opt in explicitly, mirroring the cautious-by-default stance for security-sensitive features that observe agent behaviour.",
+          "default": false
+        },
+        {
+          "path": "learn_lock.mode",
+          "key": "mode",
+          "label": "Mode",
+          "type": "enum",
+          "help": "Mode controls the gate semantics. - \"live\"    - promoted contract gates proxy decisions - \"shadow\"  - contract evaluates and emits drift but never blocks - \"capture\" - contract path is silent (no signal, no receipts) Empty Mode falls through to \"shadow\" so a misconfigured config fails toward observation, not enforcement. Operators who want live enforcement must say so.",
+          "default": "shadow",
+          "enum": [
+            "live",
+            "shadow",
+            "capture"
+          ]
+        },
+        {
+          "path": "learn_lock.store_dir",
+          "key": "store_dir",
+          "label": "Store Dir",
+          "type": "string",
+          "help": "StoreDir points at the contract store rooted at active.json + history/. Required when Enabled is true. Must be an absolute path.",
+          "default": ""
+        },
+        {
+          "path": "learn_lock.roster_path",
+          "key": "roster_path",
+          "label": "Roster Path",
+          "type": "string",
+          "help": "RosterPath is the absolute path to the deployment-level roster JSON file that names which signing keys are authorised for which purposes. Required when Enabled is true. The roster's root fingerprint must match PinnedRootFingerprint.",
+          "default": ""
+        },
+        {
+          "path": "learn_lock.environment",
+          "key": "environment",
+          "label": "Environment",
+          "type": "opaque",
+          "help": "Environment binds the lock runtime to a specific deployment environment tuple. The store rejects active manifests whose env tuple does not match, so a production cluster cannot accidentally enforce a staging or wrong-tenant contract. Required when Enabled is true.",
+          "advanced_only": true
+        },
+        {
+          "path": "learn_lock.pinned_root_fingerprint",
+          "key": "pinned_root_fingerprint",
+          "label": "Pinned Root Fingerprint",
+          "type": "string",
+          "help": "PinnedRootFingerprint is the canonical sha256 fingerprint of the trust roster root key: \"sha256:\" followed by 64 lowercase hex characters. Active manifests must chain to a roster signed by this root; mismatch fails-closed at load. Required when Enabled is true.",
+          "default": ""
+        },
+        {
+          "path": "learn_lock.minimum_signatures",
+          "key": "minimum_signatures",
+          "label": "Minimum Signatures",
+          "type": "int",
+          "help": "MinimumSignatures is the minimum number of valid manifest signatures required for the loader to accept an active.json. Defaults to 1 when 0 or negative. Higher values require dual control on promotes.",
+          "default": 1
+        }
+      ]
+    },
+    {
+      "path": "conductor",
+      "key": "conductor",
+      "label": "Conductor",
+      "type": "group",
+      "help": "follower control-plane config, excluded from canonical policy hash",
+      "children": [
+        {
+          "path": "conductor.enabled",
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "path": "conductor.conductor_url",
+          "key": "conductor_url",
+          "label": "Conductor Url",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.org_id",
+          "key": "org_id",
+          "label": "Org Id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.fleet_id",
+          "key": "fleet_id",
+          "label": "Fleet Id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.instance_id",
+          "key": "instance_id",
+          "label": "Instance Id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.trust_roster_path",
+          "key": "trust_roster_path",
+          "label": "Trust Roster Path",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.trust_roster_root_fingerprint",
+          "key": "trust_roster_root_fingerprint",
+          "label": "Trust Roster Root Fingerprint",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.server_ca_file",
+          "key": "server_ca_file",
+          "label": "Server Ca File",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.client_cert_path",
+          "key": "client_cert_path",
+          "label": "Client Cert Path",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.client_key_path",
+          "key": "client_key_path",
+          "label": "Client Key Path",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.bundle_cache_dir",
+          "key": "bundle_cache_dir",
+          "label": "Bundle Cache Dir",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.durable_audit_queue_dir",
+          "key": "durable_audit_queue_dir",
+          "label": "Durable Audit Queue Dir",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.audit_signing_key_id",
+          "key": "audit_signing_key_id",
+          "label": "Audit Signing Key Id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.recorder_key_id",
+          "key": "recorder_key_id",
+          "label": "Recorder Key Id",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.poll_interval",
+          "key": "poll_interval",
+          "label": "Poll Interval",
+          "type": "string",
+          "default": ""
+        },
+        {
+          "path": "conductor.honor_remote_kill_switch",
+          "key": "honor_remote_kill_switch",
+          "label": "Honor Remote Kill Switch",
+          "type": "bool",
+          "default": true
+        },
+        {
+          "path": "conductor.emergency_stream",
+          "key": "emergency_stream",
+          "label": "Emergency Stream",
+          "type": "tristate",
+          "default": true
+        },
+        {
+          "path": "conductor.created_skew_seconds",
+          "key": "created_skew_seconds",
+          "label": "Created Skew Seconds",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "path": "conductor.max_min_version_major_skew",
+          "key": "max_min_version_major_skew",
+          "label": "Max Min Version Major Skew",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "path": "conductor.max_min_version_minor_skew",
+          "key": "max_min_version_minor_skew",
+          "label": "Max Min Version Minor Skew",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "path": "conductor.max_capability_threshold",
+          "key": "max_capability_threshold",
+          "label": "Max Capability Threshold",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "path": "conductor.stale_policy",
+          "key": "stale_policy",
+          "label": "Stale Policy",
+          "type": "group",
+          "children": [
+            {
+              "path": "conductor.stale_policy.grace_multiplier",
+              "key": "grace_multiplier",
+              "label": "Grace Multiplier",
+              "type": "int",
+              "default": 0
+            },
+            {
+              "path": "conductor.stale_policy.after_grace",
+              "key": "after_grace",
+              "label": "After Grace",
+              "type": "string",
+              "default": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "agents",
+      "key": "agents",
+      "label": "Agents",
+      "type": "objmap",
+      "element": [
+        {
+          "path": "listeners",
+          "key": "listeners",
+          "label": "Listeners",
+          "type": "list"
+        },
+        {
+          "path": "source_cidrs",
+          "key": "source_cidrs",
+          "label": "Source Cidrs",
+          "type": "list"
+        },
+        {
+          "path": "mode",
+          "key": "mode",
+          "label": "Mode",
+          "type": "enum",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "audit"
+          ]
+        },
+        {
+          "path": "enforce",
+          "key": "enforce",
+          "label": "Enforce",
+          "type": "tristate"
+        },
+        {
+          "path": "api_allowlist",
+          "key": "api_allowlist",
+          "label": "Api Allowlist",
+          "type": "list",
+          "default": [
+            "*.anthropic.com",
+            "*.openai.com",
+            "api.telegram.org",
+            "*.discord.com",
+            "gateway.discord.gg",
+            "*.slack.com",
+            "github.com",
+            "*.github.com",
+            "*.githubusercontent.com",
+            "registry.npmjs.org"
+          ]
+        },
+        {
+          "path": "dlp",
+          "key": "dlp",
+          "label": "Dlp",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "rate_limit",
+          "key": "rate_limit",
+          "label": "Rate Limit",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "session_profiling",
+          "key": "session_profiling",
+          "label": "Session Profiling",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "mcp_tool_policy",
+          "key": "mcp_tool_policy",
+          "label": "Mcp Tool Policy",
+          "type": "opaque",
+          "advanced_only": true
+        },
+        {
+          "path": "budget",
+          "key": "budget",
+          "label": "Budget",
+          "type": "group",
+          "children": [
+            {
+              "path": "budget.max_requests_per_session",
+              "key": "max_requests_per_session",
+              "label": "Max Requests Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_bytes_per_session",
+              "key": "max_bytes_per_session",
+              "label": "Max Bytes Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_unique_domains_per_session",
+              "key": "max_unique_domains_per_session",
+              "label": "Max Unique Domains Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.window_minutes",
+              "key": "window_minutes",
+              "label": "Window Minutes",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_tool_calls_per_session",
+              "key": "max_tool_calls_per_session",
+              "label": "Max Tool Calls Per Session",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_concurrent_tool_calls",
+              "key": "max_concurrent_tool_calls",
+              "label": "Max Concurrent Tool Calls",
+              "type": "int",
+              "help": "parallel in-flight limit (default 10)"
+            },
+            {
+              "path": "budget.max_wall_clock_minutes",
+              "key": "max_wall_clock_minutes",
+              "label": "Max Wall Clock Minutes",
+              "type": "int"
+            },
+            {
+              "path": "budget.max_retries_per_tool",
+              "key": "max_retries_per_tool",
+              "label": "Max Retries Per Tool",
+              "type": "int",
+              "help": "same tool+args (default 5)"
+            },
+            {
+              "path": "budget.max_retries_per_endpoint",
+              "key": "max_retries_per_endpoint",
+              "label": "Max Retries Per Endpoint",
+              "type": "int",
+              "help": "same domain+path (default 20)"
+            },
+            {
+              "path": "budget.loop_detection_window",
+              "key": "loop_detection_window",
+              "label": "Loop Detection Window",
+              "type": "int",
+              "help": "tool calls to track (default 20)"
+            },
+            {
+              "path": "budget.fan_out_limit",
+              "key": "fan_out_limit",
+              "label": "Fan Out Limit",
+              "type": "int",
+              "help": "max unique endpoints in window (default 50)"
+            },
+            {
+              "path": "budget.fan_out_window_seconds",
+              "key": "fan_out_window_seconds",
+              "label": "Fan Out Window Seconds",
+              "type": "int",
+              "help": "window for fan-out detection (default 60)"
+            },
+            {
+              "path": "budget.cost_multipliers",
+              "key": "cost_multipliers",
+              "label": "Cost Multipliers",
+              "type": "opaque",
+              "help": "optional domain -\u003e cost weight",
+              "advanced_only": true
+            },
+            {
+              "path": "budget.dow_action",
+              "key": "dow_action",
+              "label": "Dow Action",
+              "type": "string",
+              "help": "\"block\" or \"warn\" (default \"block\")"
+            }
+          ]
+        },
+        {
+          "path": "allowed_addresses",
+          "key": "allowed_addresses",
+          "label": "Allowed Addresses",
+          "type": "list",
+          "help": "per-agent crypto address allowlist (enterprise, additive with global)"
+        },
+        {
+          "path": "sandbox",
+          "key": "sandbox",
+          "label": "Sandbox",
+          "type": "opaque",
+          "help": "per-agent sandbox overrides (Pro, gated by FeatureAgents)",
+          "advanced_only": true
+        },
+        {
+          "path": "trusted_domains",
+          "key": "trusted_domains",
+          "label": "Trusted Domains",
+          "type": "list",
+          "help": "per-agent SSRF-exempt domains (replace, not merge)",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "default_agent_identity",
+      "key": "default_agent_identity",
+      "label": "Default Agent Identity",
+      "type": "string",
+      "help": "operator-configured agent name used when no stronger identity source resolves the caller",
+      "default": ""
+    },
+    {
+      "path": "bind_default_agent_identity",
+      "key": "bind_default_agent_identity",
+      "label": "Bind Default Agent Identity",
+      "type": "bool",
+      "help": "when true, ignore self-declared header/query identities and bind requests to default_agent_identity",
+      "default": false
+    },
+    {
+      "path": "license_key",
+      "key": "license_key",
+      "label": "License Key",
+      "type": "string",
+      "help": "signed license token (from pipelock license issue)",
+      "default": ""
+    },
+    {
+      "path": "license_file",
+      "key": "license_file",
+      "label": "License File",
+      "type": "string",
+      "help": "path to file containing the license token (read at startup)",
+      "default": ""
+    },
+    {
+      "path": "license_crl_file",
+      "key": "license_crl_file",
+      "label": "License Crl File",
+      "type": "string",
+      "help": "path to signed license revocation list (read at startup)",
+      "default": ""
+    },
+    {
+      "path": "license_public_key",
+      "key": "license_public_key",
+      "label": "License Public Key",
+      "type": "string",
+      "help": "hex-encoded Ed25519 public key for license verification (dev builds only)",
+      "default": ""
+    },
+    {
+      "path": "internal",
+      "key": "internal",
+      "label": "Internal",
+      "type": "list",
+      "default": [
+        "0.0.0.0/8",
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+        "100.64.0.0/10",
+        "224.0.0.0/4",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+        "ff00::/8"
+      ]
+    },
+    {
+      "path": "trusted_domains",
+      "key": "trusted_domains",
+      "label": "Trusted Domains",
+      "type": "list",
+      "help": "domains exempt from SSRF internal-IP check (wildcard supported)",
+      "default": null
+    },
+    {
+      "path": "ssrf",
+      "key": "ssrf",
+      "label": "Ssrf",
+      "type": "group",
+      "children": [
+        {
+          "path": "ssrf.ip_allowlist",
+          "key": "ip_allowlist",
+          "label": "Ip Allowlist",
+          "type": "list",
+          "help": "IPAllowlist exempts specific IP ranges from SSRF blocking. CIDRs listed here are still considered \"internal\" but are explicitly trusted by the operator. Complementary to trusted_domains: this is IP-based trust, trusted_domains is hostname-based trust.",
+          "default": null
+        }
+      ]
+    },
+    {
+      "path": "dns",
+      "key": "dns",
+      "label": "Dns",
+      "type": "group",
+      "children": [
+        {
+          "path": "dns.host_overrides",
+          "key": "host_overrides",
+          "label": "Host Overrides",
+          "type": "opaque",
+          "advanced_only": true
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/luckyPipewrench/pipelock/internal/console/auth"
 	"github.com/luckyPipewrench/pipelock/internal/console/configintents"
+	"github.com/luckyPipewrench/pipelock/internal/console/configstructured"
 	"github.com/luckyPipewrench/pipelock/internal/console/configsvc"
 	"github.com/luckyPipewrench/pipelock/internal/console/events"
 	"github.com/luckyPipewrench/pipelock/internal/console/pipelockclient"
@@ -57,6 +58,9 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 		{http.MethodPost, "/api/service/restart"},
 		{http.MethodPost, "/api/logout"},
 		{http.MethodGet, "/api/events"},
+		{http.MethodGet, "/api/config/schema"},
+		{http.MethodGet, "/api/config/values"},
+		{http.MethodPost, "/api/config/structured"},
 	}
 	for _, c := range cases {
 		rec := httptest.NewRecorder()
@@ -161,5 +165,143 @@ func TestUnblockProposalEndpoint(t *testing.T) {
 	_ = rec2.Result().Body.Close()
 	if rec2.Code != http.StatusUnprocessableEntity {
 		t.Errorf("unknown reason: got %d, want 422", rec2.Code)
+	}
+}
+
+func TestConfigSchemaAndValuesEndpoints(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pipelock.yaml")
+	seed := "mode: audit\nkill_switch:\n  api_token: \"tok\"\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hash, _ := auth.HashPassword("pw")
+	h := New(Deps{
+		Auth:    auth.NewManager(auth.Options{PasswordHash: hash, SecretHex: "00112233445566778899aabbccddeeff"}),
+		Config:  configsvc.New(path),
+		Client:  pipelockclient.New(pipelockclient.Options{BaseURL: "http://127.0.0.1:1"}),
+		Service: service.New("pipelock"),
+		Buffer:  events.NewBuffer(100),
+		Hub:     events.NewHub(),
+	})
+
+	// GET /api/config/schema without cookie → 401.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/config/schema", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("schema unauthenticated: got %d, want 401", rec.Code)
+	}
+
+	// Login.
+	loginRec := httptest.NewRecorder()
+	h.ServeHTTP(loginRec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(`{"password":"pw"}`)))
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie after login")
+	}
+	cookie := cookies[0]
+
+	// GET /api/config/schema (authed) → 200, field_count > 0.
+	schemaReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/config/schema", nil)
+	schemaReq.AddCookie(cookie)
+	schemaRec := httptest.NewRecorder()
+	h.ServeHTTP(schemaRec, schemaReq)
+	if schemaRec.Code != http.StatusOK {
+		t.Fatalf("schema authed: got %d body=%s", schemaRec.Code, schemaRec.Body.String())
+	}
+	var schemaResp struct {
+		FieldCount int `json:"field_count"`
+	}
+	if err := json.NewDecoder(strings.NewReader(schemaRec.Body.String())).Decode(&schemaResp); err != nil {
+		t.Fatalf("decode schema: %v", err)
+	}
+	if schemaResp.FieldCount <= 0 {
+		t.Errorf("field_count = %d, want > 0", schemaResp.FieldCount)
+	}
+
+	// GET /api/config/values (authed) → 200, effective map with secret redacted, present map with mode=true.
+	valReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/config/values", nil)
+	valReq.AddCookie(cookie)
+	valRec := httptest.NewRecorder()
+	h.ServeHTTP(valRec, valReq)
+	if valRec.Code != http.StatusOK {
+		t.Fatalf("values authed: got %d body=%s", valRec.Code, valRec.Body.String())
+	}
+	var valResp struct {
+		Effective map[string]any  `json:"effective"`
+		Present   map[string]bool `json:"present"`
+	}
+	if err := json.NewDecoder(strings.NewReader(valRec.Body.String())).Decode(&valResp); err != nil {
+		t.Fatalf("decode values: %v", err)
+	}
+
+	// kill_switch.api_token must be redacted, not "tok".
+	ksAny, ok := valResp.Effective["kill_switch"]
+	if !ok {
+		t.Fatal("effective missing kill_switch key")
+	}
+	ksMap, ok := ksAny.(map[string]any)
+	if !ok {
+		t.Fatalf("kill_switch is %T, want map", ksAny)
+	}
+	if got := ksMap["api_token"]; got != configstructured.RedactedSentinel {
+		t.Errorf("api_token = %q, want %q", got, configstructured.RedactedSentinel)
+	}
+
+	// present["mode"] must be true.
+	if !valResp.Present["mode"] {
+		t.Errorf("present[mode] = false, want true")
+	}
+}
+
+func TestConfigStructuredEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pipelock.yaml")
+	if err := os.WriteFile(path, []byte("mode: audit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hash, _ := auth.HashPassword("pw")
+	h := newTestServer(t, path, hash)
+
+	// Unauthenticated request must be 401.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"metrics_listen":"127.0.0.1:9095"}}`)))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated: got %d, want 401", rec.Code)
+	}
+
+	// Log in.
+	loginRec := httptest.NewRecorder()
+	h.ServeHTTP(loginRec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(`{"password":"pw"}`)))
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie after login")
+	}
+	cookie := cookies[0]
+
+	// Valid patch → 204 and file updated.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"metrics_listen":"127.0.0.1:9095"}}`))
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("valid patch: got %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := os.ReadFile(filepath.Clean(path))
+	if !strings.Contains(string(got), "metrics_listen: 127.0.0.1:9095") {
+		t.Errorf("config not updated: %q", got)
+	}
+
+	// Invalid patch (bogus mode value rejected by ValidateBytes) → 400 and file unchanged.
+	req2 := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"mode":"bogus-mode"}}`))
+	req2.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Fatalf("invalid patch: got %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	got2, _ := os.ReadFile(filepath.Clean(path))
+	if !strings.Contains(string(got2), "mode: audit") {
+		t.Errorf("file should still contain mode: audit after rejected patch: %q", got2)
 	}
 }

@@ -76,6 +76,29 @@ export interface UnblockProposal {
   warning?: string
 }
 
+export interface SchemaField {
+  path: string
+  key: string
+  label: string
+  type: 'group' | 'bool' | 'tristate' | 'int' | 'float' | 'string' | 'enum' | 'list' | 'map' | 'objlist' | 'objmap' | 'opaque'
+  help?: string
+  default?: unknown
+  enum?: string[]
+  secret?: boolean
+  advanced_only?: boolean
+  children?: SchemaField[]
+  element?: SchemaField[]
+}
+export interface ConfigSchema {
+  field_count: number
+  sections: SchemaField[]
+}
+export interface ConfigValues {
+  effective: Record<string, unknown>
+  present: Record<string, boolean>
+}
+export const REDACTED_SENTINEL = '__redacted__'
+
 // ─── Auth-redirect plumbing ──────────────────────────────────────────────────
 
 // The router installs this so api calls can navigate on 401 without importing
@@ -197,6 +220,26 @@ export async function applyConfig(yaml: string): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-yaml' },
     body: yaml,
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
+export async function getConfigSchema(): Promise<ConfigSchema> {
+  return asJSON<ConfigSchema>(await request('/api/config/schema'))
+}
+
+export async function getConfigValues(): Promise<ConfigValues> {
+  return asJSON<ConfigValues>(await request('/api/config/values'))
+}
+
+// applyConfigStructured posts a sparse {path: value} patch. A null value deletes
+// the field (revert to default); REDACTED_SENTINEL leaves a secret unchanged.
+// 400 (invalid config) throws ApiError with the reason in the body.
+export async function applyConfigStructured(changes: Record<string, unknown>): Promise<void> {
+  const res = await request('/api/config/structured', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ changes }),
   })
   if (!res.ok) throw new ApiError(res.status, await res.text())
 }

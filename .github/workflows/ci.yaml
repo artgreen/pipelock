@@ -168,6 +168,9 @@ jobs:
       - name: Test stability policy
         run: bash scripts/check-test-stability.sh
 
+      - name: Config schema descriptor in sync
+        run: make configschema-check
+
   helm:
     needs: [security-scan]
     runs-on: ubuntu-latest

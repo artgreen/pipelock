@@ -9,9 +9,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 
+	"github.com/luckyPipewrench/pipelock/internal/config/configschema"
 	"github.com/luckyPipewrench/pipelock/internal/console/auth"
 	"github.com/luckyPipewrench/pipelock/internal/console/configintents"
+	"github.com/luckyPipewrench/pipelock/internal/console/configstructured"
 	"github.com/luckyPipewrench/pipelock/internal/console/configsvc"
 	"github.com/luckyPipewrench/pipelock/internal/console/events"
 	"github.com/luckyPipewrench/pipelock/internal/console/pipelockclient"
@@ -146,6 +149,56 @@ func New(d Deps) http.Handler {
 		}
 		writeJSON(w, prop)
 	})))
+	mux.Handle("GET /api/config/schema", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		desc, err := configschema.Load()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, desc)
+	})))
+	mux.Handle("GET /api/config/values", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := d.Config.Read()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		eff, err := configstructured.EffectiveValues(raw, secretPaths())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, map[string]any{"effective": eff, "present": configstructured.PresentPaths(raw)})
+	})))
+	mux.Handle("POST /api/config/structured", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Changes map[string]any `json:"changes"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		raw, err := d.Config.Read()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		patched, err := configstructured.ApplyChanges(raw, body.Changes, configHelp())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := d.Config.Write(patched); err != nil {
+			var invalid *configsvc.InvalidConfigError
+			if errors.As(err, &invalid) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})))
 	mux.Handle("POST /api/config", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, readErr := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 		if readErr != nil {
@@ -192,6 +245,46 @@ func New(d Deps) http.Handler {
 	mux.Handle("GET /", spaFallback(fileServer))
 
 	return mux
+}
+
+var (
+	secretPathsOnce  sync.Once
+	secretPathsCache []string
+
+	descHelpOnce sync.Once
+	descHelpFn   func(string) string
+)
+
+func configHelp() func(string) string {
+	descHelpOnce.Do(func() {
+		d, err := configschema.Load()
+		if err != nil {
+			descHelpFn = func(string) string { return "" }
+			return
+		}
+		descHelpFn = d.Help
+	})
+	return descHelpFn
+}
+
+func secretPaths() []string {
+	secretPathsOnce.Do(func() {
+		d, err := configschema.Load()
+		if err != nil {
+			return
+		}
+		var walk func(fs []configschema.Field)
+		walk = func(fs []configschema.Field) {
+			for i := range fs {
+				if fs[i].Secret {
+					secretPathsCache = append(secretPathsCache, fs[i].Path)
+				}
+				walk(fs[i].Children)
+			}
+		}
+		walk(d.Sections)
+	})
+	return secretPathsCache
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

@@ -150,6 +150,34 @@ No SSH is needed or used.
 
 ---
 
+## Editing the pipelock config (All Settings)
+
+The **Config** screen has two views:
+
+- **Settings** — a complete, searchable tree of every pipelock config field,
+  generated from the config schema (so it covers all of them, not a curated
+  subset). Use the search box to find a knob by name when something blocks
+  unexpectedly. Booleans with a tri-state default (e.g. `enforce`) show
+  `Default / On / Off` so you can see and only deliberately override the
+  default; secret fields (e.g. `kill_switch.api_token`) are masked and left
+  untouched unless you type a new value. Saving applies a **surgical patch** to
+  `pipelock.yaml` — only the fields you changed are touched, omitted sections
+  and unset defaults are preserved, and the change is **validated before it is
+  written** (an invalid edit is rejected, nothing is saved). pipelock hot-reloads
+  the file on save.
+- **Advanced** — the raw `pipelock.yaml` editor (CodeMirror) with validate /
+  diff / apply. Use it for hand-tuning, for complex fields the tree marks as
+  "edit in Advanced", and for full control over comments and formatting.
+
+The "allow a destination…" action (and the per-event "allow this…" on blocked
+events) remains available for the common case of permitting a blocked host.
+
+> Note: saving from the Settings view re-serializes with pipelock's canonical
+> 2-space indentation; your own comments on edited sections are preserved, and
+> newly set fields get a generated help comment.
+
+---
+
 ## Security
 
 - **Single admin password** gates all `/api/*` routes. `/ingest` is
