@@ -107,3 +107,35 @@ func TestNeedsSetupWhenNoPasswordHash(t *testing.T) {
 		t.Error("expected NeedsSetup=true with empty hash")
 	}
 }
+
+func TestValidHMACButNotInSessionsRejected(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	token := "aabbccddeeff0011" + "2233445566778899" // never inserted into sessions
+	sig := m.sign(token)
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "pipelock_console_session", Value: token + "." + sig}) //nolint:gosec // crafted cookie for dual-gate rejection test
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("correctly-signed but unissued token must be rejected, got %d", rec.Code)
+	}
+}
+
+func TestInSessionsButWrongHMACRejected(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	token := "0011223344556677"
+	m.mu.Lock()
+	m.sessions[token] = struct{}{}
+	m.mu.Unlock()
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "pipelock_console_session", Value: token + ".deadbeefwrongsig"}) //nolint:gosec // crafted cookie for dual-gate rejection test
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("real session token with wrong sig must be rejected, got %d", rec.Code)
+	}
+}

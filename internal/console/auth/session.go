@@ -35,10 +35,18 @@ func NewManager(o Options) *Manager {
 }
 
 // NeedsSetup reports whether no admin password has been set yet.
-func (m *Manager) NeedsSetup() bool { return m.passwordHash == "" }
+func (m *Manager) NeedsSetup() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.passwordHash == ""
+}
 
 // SetPasswordHash updates the active password hash (used by first-run wizard).
-func (m *Manager) SetPasswordHash(hash string) { m.passwordHash = hash }
+func (m *Manager) SetPasswordHash(hash string) {
+	m.mu.Lock()
+	m.passwordHash = hash
+	m.mu.Unlock()
+}
 
 func (m *Manager) sign(token string) string {
 	mac := hmac.New(sha256.New, m.secret)
@@ -48,7 +56,10 @@ func (m *Manager) sign(token string) string {
 
 // Login verifies the password and, on success, sets a session cookie.
 func (m *Manager) Login(w http.ResponseWriter, password string) bool {
-	if m.passwordHash == "" || !VerifyPassword(m.passwordHash, password) {
+	m.mu.Lock()
+	hash := m.passwordHash
+	m.mu.Unlock()
+	if hash == "" || !VerifyPassword(hash, password) {
 		return false
 	}
 	raw := make([]byte, 32)
