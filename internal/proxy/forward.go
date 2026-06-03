@@ -6,6 +6,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -638,7 +639,9 @@ func (p *Proxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 			EnvelopeEmitterSet: true,
 			Recorder:           interceptRec,
 			KillSwitch:         p.ks,
-		}); err != nil {
+		}); err != nil && !errors.Is(err, errTunnelAudited) {
+			// errTunnelAudited: interceptTunnel already logged this as a
+			// structured "blocked" event; don't re-emit it at error level.
 			p.logger.LogError(targetCtx, err)
 		}
 		return
