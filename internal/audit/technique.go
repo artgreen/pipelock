@@ -62,7 +62,6 @@ var techniqueMap = map[string]string{
 	"header_dlp":            "T1048", // Exfiltration via HTTP headers
 
 	// TLS interception events
-	"tls_intercept":          "T1557",     // Adversary-in-the-Middle
 	"tls_response_blocked":   "T1659",     // Content Injection
 	"tls_authority_mismatch": "T1090.004", // Proxy: Domain Fronting
 	"tls_handshake_error":    "T1573",     // Encrypted Channel
