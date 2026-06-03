@@ -1,0 +1,171 @@
+// Copyright 2026 Josh Waldrep
+// SPDX-License-Identifier: Apache-2.0
+
+package auth
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func newTestManager(t *testing.T, hash string) *Manager {
+	t.Helper()
+	return NewManager(Options{PasswordHash: hash, SecretHex: "00112233445566778899aabbccddeeff"})
+}
+
+func TestMiddlewareBlocksUnauthenticated(t *testing.T) {
+	m := newTestManager(t, "$argon2id$dummy")
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestLoginThenAccess(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+
+	loginRec := httptest.NewRecorder()
+	if !m.Login(loginRec, "pw") {
+		t.Fatal("login with correct password failed")
+	}
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie issued")
+	}
+
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(cookies[0])
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("authenticated request status = %d", rec.Code)
+	}
+}
+
+func TestLoginCookieSecureFlagTracksOption(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	for _, secure := range []bool{true, false} {
+		m := NewManager(Options{PasswordHash: hash, SecretHex: "00112233445566778899aabbccddeeff", Secure: secure})
+		loginRec := httptest.NewRecorder()
+		if !m.Login(loginRec, "pw") {
+			t.Fatalf("login failed (secure=%v)", secure)
+		}
+		cookies := loginRec.Result().Cookies()
+		if len(cookies) == 0 {
+			t.Fatalf("no cookie issued (secure=%v)", secure)
+		}
+		if cookies[0].Secure != secure {
+			t.Errorf("login cookie Secure = %v, want %v", cookies[0].Secure, secure)
+		}
+
+		logoutReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/logout", nil)
+		logoutReq.AddCookie(cookies[0])
+		logoutRec := httptest.NewRecorder()
+		m.Logout(logoutRec, logoutReq)
+		logoutCookies := logoutRec.Result().Cookies()
+		if len(logoutCookies) == 0 {
+			t.Fatalf("no logout cookie issued (secure=%v)", secure)
+		}
+		if logoutCookies[0].Secure != secure {
+			t.Errorf("logout cookie Secure = %v, want %v", logoutCookies[0].Secure, secure)
+		}
+	}
+}
+
+func TestLoginRejectsWrongPassword(t *testing.T) {
+	hash, _ := HashPassword("right")
+	m := newTestManager(t, hash)
+	rec := httptest.NewRecorder()
+	if m.Login(rec, "wrong") {
+		t.Error("login should fail with wrong password")
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Error("no cookie should be set on failed login")
+	}
+}
+
+func TestLogoutInvalidatesSession(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	loginRec := httptest.NewRecorder()
+	m.Login(loginRec, "pw")
+	cookie := loginRec.Result().Cookies()[0]
+
+	logoutReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/logout", nil)
+	logoutReq.AddCookie(cookie)
+	m.Logout(httptest.NewRecorder(), logoutReq)
+
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("logged-out session should be rejected, got %d", rec.Code)
+	}
+}
+
+func TestForgedCookieRejected(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "pipelock_console_session", Value: "deadbeef.deadbeef"}) //nolint:gosec // intentionally bare forged cookie for rejection test
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("forged cookie must be rejected, got %d", rec.Code)
+	}
+}
+
+func TestNeedsSetupWhenNoPasswordHash(t *testing.T) {
+	m := newTestManager(t, "")
+	if !m.NeedsSetup() {
+		t.Error("expected NeedsSetup=true with empty hash")
+	}
+}
+
+func TestValidHMACButNotInSessionsRejected(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	token := "aabbccddeeff0011" + "2233445566778899" // never inserted into sessions
+	sig := m.sign(token)
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "pipelock_console_session", Value: token + "." + sig}) //nolint:gosec // crafted cookie for dual-gate rejection test
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("correctly-signed but unissued token must be rejected, got %d", rec.Code)
+	}
+}
+
+func TestInSessionsButWrongHMACRejected(t *testing.T) {
+	hash, _ := HashPassword("pw")
+	m := newTestManager(t, hash)
+	token := "0011223344556677"
+	m.mu.Lock()
+	m.sessions[token] = struct{}{}
+	m.mu.Unlock()
+	protected := m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "pipelock_console_session", Value: token + ".deadbeefwrongsig"}) //nolint:gosec // crafted cookie for dual-gate rejection test
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("real session token with wrong sig must be rejected, got %d", rec.Code)
+	}
+}

@@ -1,5 +1,6 @@
 # Binaries
 /pipelock
+/pipelock-console
 /pipelock-static
 /bench-egress
 /bench-mcpstdio
@@ -51,3 +52,7 @@ pipelock-audit.log
 
 # ClawHub
 .clawdhub/
+
+# Console web frontend build artifacts
+internal/console/web/app/node_modules/
+internal/console/web/dist/
