@@ -37,17 +37,44 @@ const (
 	maxDepth = 12
 )
 
-// enums maps a yaml key to the closed set of values a string field with that
-// key accepts. The field walker upgrades a plain-string field to TypeEnum when
-// its key appears here. Keyed by yaml key, not by go type, because the same
-// enum applies across many structs (every "action" field, etc.).
-var enums = map[string][]string{
-	"mode":         {config.ModeStrict, config.ModeBalanced, config.ModeAudit, config.ModePermissive},
-	"action":       {config.ActionBlock, config.ActionRedirect, config.ActionWarn, config.ActionAsk, config.ActionStrip, config.ActionForward, config.ActionAllow},
-	"min_action":   {config.ActionBlock, config.ActionRedirect, config.ActionWarn, config.ActionAsk, config.ActionStrip, config.ActionForward, config.ActionAllow},
+// enumsByPath maps an exact dotted field path to the closed set of values that
+// field accepts. Used for enum-valued fields whose allowed set depends on
+// context (e.g. several distinct "mode" fields with non-overlapping values).
+// Values are taken from internal/config/validate.go, which is authoritative -
+// the validator rejects anything outside these sets, so the UI must never
+// offer an option the validator would reject. Path lookup wins over the
+// by-key map.
+var enumsByPath = map[string][]string{
+	"mode":                                 {config.ModeStrict, config.ModeBalanced, config.ModeAudit}, // top-level mode: NOT permissive
+	"mcp_tool_provenance.mode":             {config.ProvenanceModePipelock, config.ProvenanceModeSigstore, config.ProvenanceModeAny},
+	"learn_lock.mode":                      {config.LockModeLive, config.LockModeShadow, config.LockModeCapture},
+	"behavioral_baseline.seasonality_mode": {config.SeasonalityModeNone, config.SeasonalityModeLabeled, config.SeasonalityModeTime},
+	"taint.policy":                         {config.ModeStrict, config.ModeBalanced, config.ModePermissive},
+	"request_body_scanning.header_mode":    {config.HeaderModeSensitive, config.HeaderModeAll},
+}
+
+// enumsByKey maps a yaml key to an enum value set ONLY for keys whose allowed
+// set is globally consistent across every struct they appear in. "action" is
+// deliberately excluded: its allowed set varies by context (some fields accept
+// only warn/block, others the full action list), so action fields stay plain
+// strings (still validated on save) rather than risk offering a value the
+// validator rejects.
+var enumsByKey = map[string][]string{
 	"severity":     {config.SeverityInfo, config.SeverityWarn, config.SeverityCritical, config.SeverityHigh, config.SeverityMedium},
 	"min_severity": {config.SeverityInfo, config.SeverityWarn, config.SeverityCritical, config.SeverityHigh, config.SeverityMedium},
-	"header_mode":  {config.HeaderModeSensitive, config.HeaderModeAll},
+}
+
+// enumValues returns the enum value set for a field given its full dotted path
+// and yaml key, preferring an exact-path match over a by-key match. Returns nil
+// when the field is not enum-valued.
+func enumValues(path, key string) []string {
+	if v, ok := enumsByPath[path]; ok {
+		return v
+	}
+	if v, ok := enumsByKey[key]; ok {
+		return v
+	}
+	return nil
 }
 
 // advancedTypes are bare go type names whose custom YAML unmarshalers mean the
@@ -313,16 +340,19 @@ func (b *builder) buildFields(typeName, parentPath string, depth int) []configsc
 	for _, fi := range b.structFields[typeName] {
 		ft := classify(fi.goType, b.structNames)
 
-		// Enum upgrade: a plain-string field whose yaml key names an enum.
-		if ft == configschema.TypeString {
-			if _, ok := enums[fi.yamlKey]; ok {
-				ft = configschema.TypeEnum
-			}
-		}
-
 		path := fi.yamlKey
 		if parentPath != "" {
 			path = parentPath + "." + fi.yamlKey
+		}
+
+		// Enum upgrade: a plain-string field whose path/key names a closed
+		// value set. Path-scoped so context-specific "mode" fields get their
+		// own values, never a wrong global set.
+		var enum []string
+		if ft == configschema.TypeString {
+			if enum = enumValues(path, fi.yamlKey); enum != nil {
+				ft = configschema.TypeEnum
+			}
 		}
 
 		field := configschema.Field{
@@ -335,7 +365,7 @@ func (b *builder) buildFields(typeName, parentPath string, depth int) []configsc
 			AdvancedOnly: ft == configschema.TypeOpaque || advancedTypes[bareType(fi.goType)],
 		}
 		if ft == configschema.TypeEnum {
-			field.Enum = enums[fi.yamlKey]
+			field.Enum = enum
 		}
 
 		switch ft {
@@ -378,13 +408,30 @@ func bareType(goType string) string {
 
 // defaultFor reflects the default value of a leaf field out of config.Defaults()
 // by walking struct fields by yaml tag. Tri-state (*bool) defaults are resolved
-// in buildFields from the doc comment, not here. Returns nil when no meaningful
-// default exists.
+// in buildFields from the doc comment, not here. String defaults derived from
+// os.TempDir() are normalized to a portable ${TMPDIR} token so the committed
+// descriptor is deterministic across machines (os.TempDir() differs between
+// local and CI). Returns nil when no meaningful default exists.
 func (b *builder) defaultFor(path, _ string) any {
-	if v, ok := b.reflectValue(path); ok {
-		return v
+	v, ok := b.reflectValue(path)
+	if !ok {
+		return nil
 	}
-	return nil
+	if s, isStr := v.(string); isStr {
+		return normalizeTempDir(s)
+	}
+	return v
+}
+
+// normalizeTempDir replaces a leading os.TempDir() prefix with the portable
+// literal token ${TMPDIR}, so an environment-derived default (e.g.
+// /tmp/.../pipelock-quarantine) serializes identically everywhere.
+func normalizeTempDir(s string) string {
+	td := os.TempDir()
+	if td != "" && strings.HasPrefix(s, td) {
+		return "${TMPDIR}" + s[len(td):]
+	}
+	return s
 }
 
 // reflectValue walks config.Defaults() by yaml key path and returns the leaf

@@ -18,8 +18,7 @@
       "enum": [
         "strict",
         "balanced",
-        "audit",
-        "permissive"
+        "audit"
       ]
     },
     {
@@ -347,18 +346,9 @@
           "path": "dlp.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "reserved - not yet implemented; rejected at validation",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         }
       ]
     },
@@ -386,18 +376,9 @@
           "path": "response_scanning.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "strip, warn, block, ask",
-          "default": "warn",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": "warn"
         },
         {
           "path": "response_scanning.ask_timeout_seconds",
@@ -448,18 +429,9 @@
               "path": "response_scanning.sse_streaming.action",
               "key": "action",
               "label": "Action",
-              "type": "enum",
+              "type": "string",
               "help": "warn, block (mirrors a2a_scanning.action)",
-              "default": "block",
-              "enum": [
-                "block",
-                "redirect",
-                "warn",
-                "ask",
-                "strip",
-                "forward",
-                "allow"
-              ]
+              "default": "block"
             },
             {
               "path": "response_scanning.sse_streaming.max_event_bytes",
@@ -490,18 +462,9 @@
           "path": "mcp_input_scanning.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "warn, block",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "mcp_input_scanning.on_parse_error",
@@ -530,18 +493,9 @@
           "path": "mcp_tool_scanning.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "warn, block",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "mcp_tool_scanning.detect_drift",
@@ -570,18 +524,9 @@
           "path": "mcp_tool_policy.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "warn, block, redirect (default for rules without override)",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "mcp_tool_policy.rules",
@@ -602,7 +547,7 @@
           "key": "quarantine_dir",
           "label": "Quarantine Dir",
           "type": "string",
-          "default": "/tmp/claude-501/pipelock-quarantine"
+          "default": "${TMPDIR}/pipelock-quarantine"
         }
       ]
     },
@@ -959,18 +904,9 @@
           "path": "request_body_scanning.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "warn, block (no strip for bodies)",
-          "default": "warn",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": "warn"
         },
         {
           "path": "request_body_scanning.max_body_bytes",
@@ -1434,18 +1370,9 @@
           "path": "tool_chain_detection.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "warn, block",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "tool_chain_detection.window_size",
@@ -1604,18 +1531,9 @@
           "path": "cross_request_detection.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "block, warn (applies to fragment DLP match)",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "cross_request_detection.entropy_budget",
@@ -1650,18 +1568,9 @@
               "path": "cross_request_detection.entropy_budget.action",
               "key": "action",
               "label": "Action",
-              "type": "enum",
+              "type": "string",
               "help": "warn, block (entropy alone is medium-confidence)",
-              "default": "",
-              "enum": [
-                "block",
-                "redirect",
-                "warn",
-                "ask",
-                "strip",
-                "forward",
-                "allow"
-              ]
+              "default": ""
             },
             {
               "path": "cross_request_detection.entropy_budget.exempt_domains",
@@ -2007,18 +1916,9 @@
           "path": "address_protection.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "block or warn (for poisoning/lookalike findings)",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "address_protection.unknown_action",
@@ -2224,18 +2124,9 @@
           "path": "file_sentry.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "Action selects the enforcement response when an agent-attributed write matches a DLP pattern. \"warn\" logs the finding and records a metric (current default). \"block\" additionally cancels the proxy context so the MCP child terminates, preventing the agent from continuing after a detected leak. Non-agent writes (editor saves, build output) never trigger the block path. Empty normalizes to \"warn\".",
-          "default": "",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": ""
         },
         {
           "path": "file_sentry.max_file_bytes",
@@ -2412,18 +2303,9 @@
           "path": "mcp_binary_integrity.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "\"block\" or \"warn\" (default \"warn\")",
-          "default": "warn",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": "warn"
         },
         {
           "path": "mcp_binary_integrity.require_signature",
@@ -2476,18 +2358,9 @@
           "path": "mcp_tool_provenance.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "\"block\" or \"warn\" for missing provenance (default \"warn\")",
-          "default": "warn",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": "warn"
         },
         {
           "path": "mcp_tool_provenance.mode",
@@ -2497,10 +2370,9 @@
           "help": "\"pipelock\", \"sigstore\", \"any\" (default \"pipelock\")",
           "default": "pipelock",
           "enum": [
-            "strict",
-            "balanced",
-            "audit",
-            "permissive"
+            "pipelock",
+            "sigstore",
+            "any"
           ]
         },
         {
@@ -2610,9 +2482,14 @@
           "path": "behavioral_baseline.seasonality_mode",
           "key": "seasonality_mode",
           "label": "Seasonality Mode",
-          "type": "string",
+          "type": "enum",
           "help": "\"none\", \"labeled\", \"time\" (default \"none\")",
-          "default": "none"
+          "default": "none",
+          "enum": [
+            "none",
+            "labeled",
+            "time"
+          ]
         }
       ]
     },
@@ -2933,18 +2810,9 @@
           "path": "a2a_scanning.action",
           "key": "action",
           "label": "Action",
-          "type": "enum",
+          "type": "string",
           "help": "block, warn",
-          "default": "warn",
-          "enum": [
-            "block",
-            "redirect",
-            "warn",
-            "ask",
-            "strip",
-            "forward",
-            "allow"
-          ]
+          "default": "warn"
         },
         {
           "path": "a2a_scanning.scan_agent_cards",
@@ -3064,9 +2932,14 @@
           "path": "taint.policy",
           "key": "policy",
           "label": "Policy",
-          "type": "string",
+          "type": "enum",
           "help": "strict, balanced, permissive",
-          "default": "balanced"
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "permissive"
+          ]
         },
         {
           "path": "taint.recent_sources",
@@ -3386,10 +3259,9 @@
           "help": "Mode controls the gate semantics. - \"live\"    - promoted contract gates proxy decisions - \"shadow\"  - contract evaluates and emits drift but never blocks - \"capture\" - contract path is silent (no signal, no receipts) Empty Mode falls through to \"shadow\" so a misconfigured config fails toward observation, not enforcement. Operators who want live enforcement must say so.",
           "default": "shadow",
           "enum": [
-            "strict",
-            "balanced",
-            "audit",
-            "permissive"
+            "live",
+            "shadow",
+            "capture"
           ]
         },
         {
