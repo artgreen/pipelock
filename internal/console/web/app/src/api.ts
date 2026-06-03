@@ -80,13 +80,14 @@ export interface SchemaField {
   path: string
   key: string
   label: string
-  type: 'group' | 'bool' | 'tristate' | 'int' | 'float' | 'string' | 'enum' | 'list' | 'map' | 'opaque'
+  type: 'group' | 'bool' | 'tristate' | 'int' | 'float' | 'string' | 'enum' | 'list' | 'map' | 'objlist' | 'objmap' | 'opaque'
   help?: string
   default?: unknown
   enum?: string[]
   secret?: boolean
   advanced_only?: boolean
   children?: SchemaField[]
+  element?: SchemaField[]
 }
 export interface ConfigSchema {
   field_count: number

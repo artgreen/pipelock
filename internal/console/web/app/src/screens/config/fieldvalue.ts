@@ -11,6 +11,20 @@ export function getPath(obj: Record<string, unknown>, path: string): unknown {
   return cur
 }
 
+// setPath returns a shallow-cloned copy of obj with the dotted path set to value.
+export function setPath(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
+  const segs = path.split('.')
+  const root: Record<string, unknown> = { ...(obj ?? {}) }
+  let cur = root
+  for (let i = 0; i < segs.length - 1; i++) {
+    const k = segs[i]
+    cur[k] = { ...((cur[k] as Record<string, unknown>) ?? {}) }
+    cur = cur[k] as Record<string, unknown>
+  }
+  cur[segs[segs.length - 1]] = value
+  return root
+}
+
 // coerce converts a raw input value to the type the backend expects.
 export function coerce(type: string, raw: unknown): unknown {
   switch (type) {

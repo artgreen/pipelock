@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { REDACTED_SENTINEL, type SchemaField } from '../../api'
-import { coerce } from './fieldvalue'
+import { coerce, getPath, setPath } from './fieldvalue'
 
 interface Props {
   field: SchemaField
@@ -67,8 +67,12 @@ function FieldWidget({ field, valueOf, presentOf, onChange, onAdvanced }: Props)
       return <ListWidget field={field} value={value} onChange={onChange} />
     case 'map':
       return <MapWidget field={field} value={value} onChange={onChange} />
+    case 'objlist':
+      return <RecordList field={field} value={value} onChange={onChange} onAdvanced={onAdvanced} />
+    case 'objmap':
+      return <RecordMap field={field} value={value} onChange={onChange} onAdvanced={onAdvanced} />
     case 'opaque':
-      return <OpaqueWidget onAdvanced={onAdvanced} />
+      return <OpaqueWidget field={field} value={value} onChange={onChange} />
     default:
       return null
   }
@@ -371,18 +375,220 @@ function MapWidget({ field, value, onChange }: { field: SchemaField; value: unkn
   )
 }
 
-// ─── Opaque widget ────────────────────────────────────────────────────────────
+// ─── Record list (objlist: []Struct) widget ────────────────────────────────────
 
-function OpaqueWidget({ onAdvanced }: { onAdvanced?: () => void }) {
+function RecordList({ field, value, onChange, onAdvanced }: {
+  field: SchemaField
+  value: unknown
+  onChange: Props['onChange']
+  onAdvanced?: () => void
+}) {
+  const arr: unknown[] = Array.isArray(value) ? value : []
+  const element = field.element ?? []
+
+  const removeAt = (i: number) => {
+    onChange(field.path, arr.filter((_, j) => j !== i))
+  }
+
+  const addRecord = () => {
+    onChange(field.path, [...arr, {}])
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-      <span style={{ color: 'var(--color-muted)', fontSize: '0.74rem' }}>
-        Complex field — edit in the Advanced (raw YAML) view
-      </span>
-      {onAdvanced && (
-        <button type="button" className="btn-neon" onClick={onAdvanced} style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}>
-          open advanced
+    <div>
+      {arr.length === 0 && (
+        <span style={{ color: 'var(--color-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.5rem' }}>— no entries —</span>
+      )}
+      {arr.map((record, i) => {
+        const rec = (record != null && typeof record === 'object' && !Array.isArray(record))
+          ? (record as Record<string, unknown>)
+          : {}
+        const recValueOf = (p: string): unknown => getPath(rec, p)
+        const recOnChange = (p: string, v: unknown) => {
+          const next = [...arr]
+          next[i] = setPath(rec, p, v)
+          onChange(field.path, next)
+        }
+
+        return (
+          <div key={i} style={recordCardStyle}>
+            <div style={recordHeaderStyle}>
+              <span style={{ color: 'var(--color-muted)', fontSize: '0.66rem', fontFamily: 'var(--font-mono)' }}>#{i + 1}</span>
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                style={recordRemoveStyle}
+                aria-label={`remove entry ${i + 1}`}
+              >
+                remove
+              </button>
+            </div>
+            {element.map((ef) => (
+              <Field
+                key={ef.path}
+                field={ef}
+                valueOf={recValueOf}
+                presentOf={() => false}
+                onChange={recOnChange}
+                onAdvanced={onAdvanced}
+              />
+            ))}
+          </div>
+        )
+      })}
+      <button type="button" className="btn-neon" onClick={addRecord} style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}>
+        add entry
+      </button>
+    </div>
+  )
+}
+
+// ─── Record map (objmap: map[string]Struct) widget ──────────────────────────────
+
+function RecordMap({ field, value, onChange, onAdvanced }: {
+  field: SchemaField
+  value: unknown
+  onChange: Props['onChange']
+  onAdvanced?: () => void
+}) {
+  const [draftKey, setDraftKey] = useState('')
+  const obj: Record<string, unknown> =
+    value != null && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {}
+  const entries = Object.entries(obj)
+  const element = field.element ?? []
+
+  const renameKey = (oldKey: string, newKey: string) => {
+    if (newKey === oldKey) return
+    // Rebuild preserving order; if the new key collides, the rename is a no-op.
+    if (newKey !== '' && Object.prototype.hasOwnProperty.call(obj, newKey)) return
+    const next: Record<string, unknown> = {}
+    for (const [k, v] of entries) {
+      next[k === oldKey ? newKey : k] = v
+    }
+    onChange(field.path, next)
+  }
+
+  const removeKey = (key: string) => {
+    const next = { ...obj }
+    delete next[key]
+    onChange(field.path, next)
+  }
+
+  const addEntry = () => {
+    const k = draftKey.trim()
+    if (!k || Object.prototype.hasOwnProperty.call(obj, k)) return
+    onChange(field.path, { ...obj, [k]: {} })
+    setDraftKey('')
+  }
+
+  return (
+    <div>
+      {entries.length === 0 && (
+        <span style={{ color: 'var(--color-muted)', fontSize: '0.72rem', display: 'block', marginBottom: '0.5rem' }}>— no entries —</span>
+      )}
+      {entries.map(([key, record]) => {
+        const rec = (record != null && typeof record === 'object' && !Array.isArray(record))
+          ? (record as Record<string, unknown>)
+          : {}
+        const recValueOf = (p: string): unknown => getPath(rec, p)
+        const recOnChange = (p: string, v: unknown) => {
+          onChange(field.path, { ...obj, [key]: setPath(rec, p, v) })
+        }
+
+        return (
+          <div key={key} style={recordCardStyle}>
+            <div style={recordHeaderStyle}>
+              <input
+                type="text"
+                defaultValue={key}
+                onBlur={(e) => renameKey(key, e.target.value.trim())}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                style={{ ...inputStyle, flex: '0 0 12rem' }}
+                aria-label={`key for ${key}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeKey(key)}
+                style={recordRemoveStyle}
+                aria-label={`remove ${key}`}
+              >
+                remove
+              </button>
+            </div>
+            {element.map((ef) => (
+              <Field
+                key={ef.path}
+                field={ef}
+                valueOf={recValueOf}
+                presentOf={() => false}
+                onChange={recOnChange}
+                onAdvanced={onAdvanced}
+              />
+            ))}
+          </div>
+        )
+      })}
+      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+        <input
+          type="text"
+          value={draftKey}
+          onChange={(e) => setDraftKey(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addEntry()}
+          placeholder="new key"
+          style={{ ...inputStyle, flex: '0 0 12rem' }}
+        />
+        <button
+          type="button"
+          className="btn-neon"
+          disabled={!draftKey.trim()}
+          onClick={addEntry}
+          style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}
+        >
+          add entry
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Opaque widget (inline JSON editor) ─────────────────────────────────────────
+
+function OpaqueWidget({ field, value, onChange }: { field: SchemaField; value: unknown; onChange: Props['onChange'] }) {
+  const [draft, setDraft] = useState(() => JSON.stringify(value ?? null, null, 2))
+  const [invalid, setInvalid] = useState(false)
+
+  const commit = (text: string) => {
+    try {
+      const parsed: unknown = JSON.parse(text)
+      setInvalid(false)
+      onChange(field.path, parsed)
+    } catch {
+      setInvalid(true)
+    }
+  }
+
+  return (
+    <div>
+      <span style={{ color: 'var(--color-muted)', fontSize: '0.66rem', fontFamily: 'var(--font-mono)', display: 'block', marginBottom: '0.3rem' }}>
+        advanced (JSON)
+      </span>
+      <textarea
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          commit(e.target.value)
+        }}
+        onBlur={(e) => commit(e.target.value)}
+        spellCheck={false}
+        rows={Math.min(12, Math.max(3, draft.split('\n').length))}
+        style={{ ...inputStyle, width: '100%', resize: 'vertical', whiteSpace: 'pre' }}
+      />
+      {invalid && (
+        <span style={{ color: 'var(--color-alert)', fontSize: '0.68rem', display: 'block', marginTop: '0.25rem' }}>
+          invalid JSON — not saved
+        </span>
       )}
     </div>
   )
@@ -392,6 +598,34 @@ function OpaqueWidget({ onAdvanced }: { onAdvanced?: () => void }) {
 
 const wrapStyle: React.CSSProperties = {
   marginBottom: '0.9rem',
+}
+
+const recordCardStyle: React.CSSProperties = {
+  background: 'var(--color-surface)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-panel)',
+  padding: '0.65rem 0.75rem',
+  marginBottom: '0.6rem',
+}
+
+const recordHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginBottom: '0.5rem',
+}
+
+const recordRemoveStyle: React.CSSProperties = {
+  marginLeft: 'auto',
+  background: 'none',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-panel)',
+  color: 'var(--color-alert)',
+  cursor: 'pointer',
+  fontSize: '0.66rem',
+  fontFamily: 'var(--font-mono)',
+  letterSpacing: '0.05em',
+  padding: '0.15rem 0.5rem',
 }
 
 const labelStyle: React.CSSProperties = {
