@@ -20,6 +20,8 @@ func serveSSE(w http.ResponseWriter, r *http.Request, hub *events.Hub, buf *even
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	// Subscribe before Snapshot so no event is missed; an event in the small
+	// window between the two may be delivered twice — clients dedupe by timestamp.
 	ch := hub.Subscribe()
 	defer hub.Unsubscribe(ch)
 

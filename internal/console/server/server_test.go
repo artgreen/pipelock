@@ -88,7 +88,7 @@ func TestConfigWriteAppliesValidYAML(t *testing.T) {
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec.Code != http.StatusNoContent {
 		t.Fatalf("write status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	got, _ := os.ReadFile(filepath.Clean(path))

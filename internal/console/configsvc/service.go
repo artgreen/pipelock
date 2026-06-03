@@ -32,6 +32,12 @@ func (s *Service) Read() ([]byte, error) {
 	return data, nil
 }
 
+// InvalidConfigError indicates submitted config failed validation (a client
+// error), as opposed to an I/O failure writing it (a server error).
+type InvalidConfigError struct{ Reason string }
+
+func (e *InvalidConfigError) Error() string { return "config rejected: " + e.Reason }
+
 // ValidationResult reports whether submitted YAML is a valid pipelock config.
 type ValidationResult struct {
 	OK       bool     `json:"ok"`
@@ -46,7 +52,7 @@ var nowFunc = time.Now
 // atomically replaces it. Invalid input is rejected and nothing is written.
 func (s *Service) Write(raw []byte) error {
 	if res := Validate(raw); !res.OK {
-		return fmt.Errorf("config rejected: %s", res.Error)
+		return &InvalidConfigError{Reason: res.Error}
 	}
 	current, err := os.ReadFile(filepath.Clean(s.Path))
 	if err != nil {

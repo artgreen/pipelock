@@ -6,6 +6,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -53,7 +54,7 @@ func New(d Deps) http.Handler {
 		if d.OnPasswordSet != nil {
 			d.OnPasswordSet(hash)
 		}
-		_ = d.Auth.Login(w, pw)
+		_ = d.Auth.Login(w, pw) // best-effort auto-login; if it fails the user logs in manually
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) {
@@ -126,10 +127,15 @@ func New(d Deps) http.Handler {
 	mux.Handle("POST /api/config", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 		if err := d.Config.Write(raw); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			var invalid *configsvc.InvalidConfigError
+			if errors.As(err, &invalid) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNoContent)
 	})))
 	mux.Handle("GET /api/service", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// systemctl is-active exits non-zero for inactive/failed units while

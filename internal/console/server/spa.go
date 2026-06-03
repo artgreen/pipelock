@@ -13,8 +13,9 @@ import (
 // spaFallback serves static files, falling back to index.html for non-asset
 // paths so client-side routing works on deep links.
 func spaFallback(fileServer http.Handler) http.Handler {
+	fsys := web.FS()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if f, err := web.FS().Open(strings.TrimPrefix(r.URL.Path, "/")); err != nil && r.URL.Path != "/" {
+		if f, err := fsys.Open(strings.TrimPrefix(r.URL.Path, "/")); err != nil && r.URL.Path != "/" {
 			r2 := r.Clone(r.Context())
 			r2.URL.Path = "/"
 			fileServer.ServeHTTP(w, r2)
