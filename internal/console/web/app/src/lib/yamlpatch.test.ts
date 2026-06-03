@@ -58,4 +58,21 @@ describe('addToSequence', () => {
     expect(readSequence(out, 'api_allowlist')).toEqual(['github.com'])
     expect(out).toContain('# nothing yet')
   })
+
+  it('merges into an existing parent rather than duplicating it (child key missing)', () => {
+    const base = 'mode: audit\nfetch_proxy:\n  listen: "127.0.0.1:8888"\n'
+    const out = addToSequence(base, 'fetch_proxy.monitoring.blocklist', '*.evil.com')
+    expect(readSequence(out, 'fetch_proxy.monitoring.blocklist')).toEqual(['*.evil.com'])
+    // exactly one top-level fetch_proxy — no duplicate that would override or break YAML
+    expect(out.match(/^fetch_proxy:/gm)?.length).toBe(1)
+    expect(out).toContain('listen: "127.0.0.1:8888"')
+  })
+
+  it('adds a missing leaf list under an existing intermediate parent', () => {
+    const base = 'fetch_proxy:\n  monitoring:\n    max_url_length: 2048\n'
+    const out = addToSequence(base, 'fetch_proxy.monitoring.blocklist', '*.evil.com')
+    expect(readSequence(out, 'fetch_proxy.monitoring.blocklist')).toEqual(['*.evil.com'])
+    expect(out.match(/monitoring:/g)?.length).toBe(1)
+    expect(out).toContain('max_url_length: 2048')
+  })
 })

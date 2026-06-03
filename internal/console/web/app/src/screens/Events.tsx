@@ -17,10 +17,20 @@ function bucket(sev: string): 'block' | 'warn' | 'info' {
 
 // Reasons the backend supports unblocking. "Allowing" a DLP/secret-leak or
 // injection block is semantically wrong for a security product, so the
-// "allow this…" action is gated to these destination-blocklist reasons only.
-const UNBLOCK_ELIGIBLE_REASONS = new Set(['ssrf_private_ip', 'ssrf_metadata', 'domain_blocklist'])
-function isUnblockEligible(ev: PipelockEvent): boolean {
-  return typeof ev.fields.reason === 'string' && UNBLOCK_ELIGIBLE_REASONS.has(ev.fields.reason)
+// "allow this…" action is gated to destination-block layers only. Eligibility
+// and the proposed reason both derive from the stable `fields.scanner` LABEL,
+// not `fields.reason` — the latter is free-text audit prose (e.g. "domain in
+// blocklist: evil.com"), so matching reason codes against it never works.
+// This map mirrors the proxy's scanner→blockreason mapping for the three layers
+// the unblock endpoint supports.
+const SCANNER_TO_UNBLOCK_REASON: Record<string, string> = {
+  ssrf: 'ssrf_private_ip',
+  ssrf_metadata: 'ssrf_metadata',
+  blocklist: 'domain_blocklist',
+}
+function unblockReason(ev: PipelockEvent): string | null {
+  const scanner = ev.fields.scanner
+  return typeof scanner === 'string' ? (SCANNER_TO_UNBLOCK_REASON[scanner] ?? null) : null
 }
 
 // Lazily loads the current config buffer then renders the UnblockDialog.
@@ -50,12 +60,15 @@ export default function Events() {
   const [selected, setSelected] = useState<PipelockEvent | null>(null)
   const [unblock, setUnblock] = useState<{ target: string; reason: string; matchedPattern: string } | null>(null)
 
-  const openUnblock = (e: PipelockEvent) =>
+  const openUnblock = (e: PipelockEvent) => {
+    const reason = unblockReason(e)
+    if (!reason) return
     setUnblock({
       target: String(e.fields.target),
-      reason: String(e.fields.reason ?? ''),
+      reason,
       matchedPattern: String(e.fields.pattern ?? ''),
     })
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -151,7 +164,7 @@ export default function Events() {
                   <span style={{ fontSize: '0.76rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.type}</span>
                   <span style={{ fontSize: '0.74rem', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eventTarget(e.fields)}</span>
                   <span style={{ fontSize: '0.68rem', color: 'var(--color-muted)' }}>{formatTime(e.timestamp)}</span>
-                  {isUnblockEligible(e) && e.fields.target != null && (
+                  {unblockReason(e) != null && e.fields.target != null && (
                     <span
                       role="button"
                       tabIndex={0}
