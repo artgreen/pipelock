@@ -67,6 +67,15 @@ export interface PipelockEvent {
   fields: Record<string, unknown>
 }
 
+export interface UnblockProposal {
+  op: 'list_add' | 'list_remove'
+  path: string
+  value: string
+  explanation: string
+  still_scanned: string[]
+  warning?: string
+}
+
 // ─── Auth-redirect plumbing ──────────────────────────────────────────────────
 
 // The router installs this so api calls can navigate on 401 without importing
@@ -190,6 +199,20 @@ export async function applyConfig(yaml: string): Promise<void> {
     body: yaml,
   })
   if (!res.ok) throw new ApiError(res.status, await res.text())
+}
+
+// proposeUnblock asks the backend for the minimal config change that allows a
+// blocked destination. matchedPattern is the blocklist pattern that matched (if
+// known, e.g. from the event) so blocklist removals target the right entry.
+// Returns the proposal; 422 (unsupported reason) throws ApiError with the reason
+// in the body.
+export async function proposeUnblock(target: string, reason: string, matchedPattern = ''): Promise<UnblockProposal> {
+  const res = await request('/api/config/unblock-proposal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target, reason, matched_pattern: matchedPattern }),
+  })
+  return asJSON<UnblockProposal>(res)
 }
 
 export async function getService(): Promise<ServiceStatus> {
