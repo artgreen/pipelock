@@ -7,6 +7,8 @@ import { hasChanges, lineDiff, readTopLevelScalar, setTopLevelScalar, type DiffL
 import ScreenHeader from '../components/ScreenHeader'
 import Banner from '../components/Banner'
 import { useToast } from '../components/toast-context'
+import ListEditor from './config/ListEditor'
+import UnblockDialog from './config/UnblockDialog'
 
 const MODES = ['strict', 'balanced', 'audit', 'permissive'] as const
 
@@ -20,6 +22,8 @@ export default function Config() {
   const [validating, setValidating] = useState(false)
   const [applying, setApplying] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
+  const [view, setView] = useState<'guided' | 'advanced'>('guided')
+  const [unblockOpen, setUnblockOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,6 +107,28 @@ export default function Config() {
     }
   }
 
+  const applyBuffer = useCallback(async (patched: string, summary: string) => {
+    setBuffer(patched)
+    setApplying(true)
+    try {
+      const v = await validateConfig(patched)
+      if (!v.ok) {
+        setValidation(v)
+        toast.push(`${summary} failed validation`, 'alert')
+        return
+      }
+      await applyConfig(patched)
+      toast.push(`${summary} — applied; pipelock will hot-reload`, 'ok')
+      await load()
+    } catch (e) {
+      const reason = e instanceof ApiError ? e.body || e.message : e instanceof Error ? e.message : 'failed'
+      setValidation({ ok: false, error: reason })
+      toast.push(`${summary} rejected`, 'alert')
+    } finally {
+      setApplying(false)
+    }
+  }, [load, toast])
+
   const busy = applying || validating
 
   return (
@@ -112,6 +138,10 @@ export default function Config() {
         tag="runtime configuration"
         right={
           <>
+            <div style={{ display: 'flex', gap: '0.25rem', marginRight: '0.5rem' }}>
+              <button type="button" onClick={() => setView('guided')} style={modeChip(view === 'guided')}>guided</button>
+              <button type="button" onClick={() => setView('advanced')} style={modeChip(view === 'advanced')}>advanced</button>
+            </div>
             <button type="button" className="btn-neon" onClick={() => setShowDiff((d) => !d)} disabled={!dirty} style={{ opacity: dirty ? 1 : 0.4 }}>
               {showDiff ? 'hide diff' : 'show diff'}
             </button>
@@ -133,46 +163,50 @@ export default function Config() {
         </div>
       )}
 
-      {/* Quick toggles */}
-      <div className="panel" style={{ marginBottom: '0.9rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ color: 'var(--color-muted)', fontSize: '0.64rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>mode</span>
-          <div style={{ display: 'flex', gap: '0.25rem' }}>
-            {MODES.map((m) => (
+      {view === 'advanced' && (
+        <>
+          {/* Quick toggles */}
+          <div className="panel" style={{ marginBottom: '0.9rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ color: 'var(--color-muted)', fontSize: '0.64rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>mode</span>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                {MODES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => mode !== m && applyQuickToggle('mode', m)}
+                    style={modeChip(mode === m)}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ color: 'var(--color-muted)', fontSize: '0.64rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>enforce</span>
               <button
-                key={m}
                 type="button"
                 disabled={busy}
-                onClick={() => mode !== m && applyQuickToggle('mode', m)}
-                style={modeChip(mode === m)}
+                onClick={() => applyQuickToggle('enforce', enforce === 'true' ? 'false' : 'true')}
+                style={toggleStyle(enforce === 'true')}
+                aria-pressed={enforce === 'true'}
               >
-                {m}
+                <span style={{ ...knobStyle, transform: enforce === 'true' ? 'translateX(20px)' : 'translateX(0)' }} />
+                <span style={{ position: 'absolute', left: enforce === 'true' ? '8px' : 'auto', right: enforce === 'true' ? 'auto' : '8px', fontSize: '0.58rem', color: enforce === 'true' ? 'var(--color-bg)' : 'var(--color-muted)', letterSpacing: '0.08em' }}>
+                  {enforce === 'true' ? 'ON' : enforce === undefined ? '·' : 'OFF'}
+                </span>
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ color: 'var(--color-muted)', fontSize: '0.64rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>enforce</span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => applyQuickToggle('enforce', enforce === 'true' ? 'false' : 'true')}
-            style={toggleStyle(enforce === 'true')}
-            aria-pressed={enforce === 'true'}
-          >
-            <span style={{ ...knobStyle, transform: enforce === 'true' ? 'translateX(20px)' : 'translateX(0)' }} />
-            <span style={{ position: 'absolute', left: enforce === 'true' ? '8px' : 'auto', right: enforce === 'true' ? 'auto' : '8px', fontSize: '0.58rem', color: enforce === 'true' ? 'var(--color-bg)' : 'var(--color-muted)', letterSpacing: '0.08em' }}>
-              {enforce === 'true' ? 'ON' : enforce === undefined ? '·' : 'OFF'}
+            </div>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-muted)', fontSize: '0.68rem' }}>
+              quick-toggles validate + apply immediately
             </span>
-          </button>
-        </div>
-        <span style={{ marginLeft: 'auto', color: 'var(--color-muted)', fontSize: '0.68rem' }}>
-          quick-toggles validate + apply immediately
-        </span>
-      </div>
+          </div>
+        </>
+      )}
 
-      {/* Validation result */}
+      {/* Validation result — shown in both views */}
       {validation && (
         <div style={{ marginBottom: '0.9rem' }}>
           {validation.ok ? (
@@ -190,35 +224,62 @@ export default function Config() {
         </div>
       )}
 
-      {/* Editor + optional diff */}
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: showDiff ? '1fr 1fr' : '1fr', gap: '0.9rem' }}>
-        <div className="panel panel--neon" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={editorBar}>
-            <span>pipelock.yaml {dirty && <span style={{ color: 'var(--color-warn)' }}>● modified</span>}</span>
-            <span style={{ color: 'var(--color-muted)' }}>{loading ? 'loading…' : `${buffer.split('\n').length} lines`}</span>
-          </div>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <CodeMirror
-              value={buffer}
-              onChange={setBuffer}
-              theme="dark"
-              extensions={[yamlLang(), cyberCodeMirror]}
-              height="100%"
-              style={{ height: '100%' }}
-              basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
-            />
-          </div>
-        </div>
-
-        {showDiff && (
-          <div className="panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {view === 'advanced' ? (
+        /* Editor + optional diff */
+        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: showDiff ? '1fr 1fr' : '1fr', gap: '0.9rem' }}>
+          <div className="panel panel--neon" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div style={editorBar}>
-              <span>diff — current vs edited</span>
+              <span>pipelock.yaml {dirty && <span style={{ color: 'var(--color-warn)' }}>● modified</span>}</span>
+              <span style={{ color: 'var(--color-muted)' }}>{loading ? 'loading…' : `${buffer.split('\n').length} lines`}</span>
             </div>
-            <DiffView diff={lineDiff(original, buffer)} />
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <CodeMirror
+                value={buffer}
+                onChange={setBuffer}
+                theme="dark"
+                extensions={[yamlLang(), cyberCodeMirror]}
+                height="100%"
+                style={{ height: '100%' }}
+                basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }}
+              />
+            </div>
           </div>
-        )}
-      </div>
+
+          {showDiff && (
+            <div className="panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={editorBar}>
+                <span>diff — current vs edited</span>
+              </div>
+              <DiffView diff={lineDiff(original, buffer)} />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Guided view */
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <div className="panel" style={{ marginBottom: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.78rem' }}>A destination getting blocked? Allow it safely.</span>
+            <button type="button" className="btn-neon" onClick={() => setUnblockOpen(true)} disabled={busy}>allow a destination…</button>
+          </div>
+          <ListEditor label="SSRF IP allowlist" path="ssrf.ip_allowlist" buffer={buffer} disabled={busy}
+            help="Internal/private IPs to exempt from the SSRF block. Content (DLP) scanning still runs. CIDR form, e.g. 10.1.2.3/32."
+            onChange={(next) => void applyBuffer(next, 'ssrf.ip_allowlist change')} />
+          <ListEditor label="Domain allowlist" path="api_allowlist" buffer={buffer} disabled={busy}
+            help="In strict mode, only these domains are reachable. Does not bypass content scanning."
+            onChange={(next) => void applyBuffer(next, 'api_allowlist change')} />
+          <ListEditor label="Domain blocklist" path="fetch_proxy.monitoring.blocklist" buffer={buffer} disabled={busy}
+            help="Destination patterns that are always blocked, e.g. *.pastebin.com."
+            onChange={(next) => void applyBuffer(next, 'blocklist change')} />
+        </div>
+      )}
+
+      {unblockOpen && (
+        <UnblockDialog
+          target="" buffer={buffer}
+          onCancel={() => setUnblockOpen(false)}
+          onApply={async (patched, summary) => { await applyBuffer(patched, summary); setUnblockOpen(false) }}
+        />
+      )}
     </div>
   )
 }
