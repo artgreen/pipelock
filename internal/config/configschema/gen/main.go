@@ -87,6 +87,13 @@ func classify(goType string, structNames map[string]bool) configschema.FieldType
 	case "map[string]string":
 		return configschema.TypeMap
 	}
+	// A qualified type (pkg.Name, []pkg.Name, ...) is never a locally-declared
+	// struct, so it must never be treated as a group — even when its selector
+	// name collides with a local struct (e.g. redact.Config vs the root Config).
+	// This check must precede the structNames lookup.
+	if strings.Contains(goType, ".") {
+		return configschema.TypeOpaque
+	}
 	if structNames[goType] {
 		return configschema.TypeGroup
 	}
@@ -120,9 +127,9 @@ func label(key string) string {
 }
 
 // typeString renders an ast.Expr type node to a go type string the classifier
-// understands. Cross-package selector types render as their selector name only
-// (e.g. redact.Config -> "Config"), which classify treats as opaque unless the
-// bare name happens to be a local struct.
+// understands. Cross-package selector types keep their package qualifier
+// (e.g. redact.Config, []redact.Rule) so they can never collide with a
+// locally-declared struct name; classify treats any qualified type as opaque.
 func typeString(expr ast.Expr) string {
 	switch t := expr.(type) {
 	case *ast.Ident:
@@ -134,8 +141,9 @@ func typeString(expr ast.Expr) string {
 	case *ast.MapType:
 		return "map[" + typeString(t.Key) + "]" + typeString(t.Value)
 	case *ast.SelectorExpr:
-		// Cross-package type (pkg.Name); use the selector name only.
-		return t.Sel.Name
+		// Cross-package type (pkg.Name); keep the package qualifier. The "."
+		// in the result is what marks it qualified (and thus opaque).
+		return typeString(t.X) + "." + t.Sel.Name
 	default:
 		return ""
 	}

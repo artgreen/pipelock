@@ -19,8 +19,12 @@ func TestClassify(t *testing.T) {
 		{"map[string]string", "map"},
 		{"FetchProxy", "group"},
 		{"[]SuppressEntry", "opaque"},
+		{"redact.Config", "opaque"},
+		{"[]redact.Rule", "opaque"},
 	}
-	structNames := map[string]bool{"FetchProxy": true, "SuppressEntry": true, "Monitoring": true}
+	// "Config" is intentionally present to prove a qualified selector type
+	// (redact.Config) is opaque even when its bare name collides with a local struct.
+	structNames := map[string]bool{"FetchProxy": true, "SuppressEntry": true, "Monitoring": true, "Config": true}
 	for _, c := range cases {
 		if got := classify(c.goType, structNames); string(got) != c.want {
 			t.Errorf("classify(%q) = %q, want %q", c.goType, got, c.want)
