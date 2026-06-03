@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/* ───────────────────────────────────────────────
+   Cyber-terminal theme tokens (Tailwind v4 @theme)
+   ─────────────────────────────────────────────── */
+@theme {
+  /* Color palette */
+  --color-bg:          #0a0c0a;
+  --color-surface:     #111411;
+  --color-border:      #1a2b1a;
+  --color-text:        #c8e6c8;
+  --color-muted:       #4a6b4a;
+  --color-neon:        #39ff14;
+  --color-neon-dim:    #1a7a08;
+  --color-alert:       #ff2d2d;
+  --color-alert-dim:   #7a0808;
+  --color-warn:        #ffcc00;
+
+  /* Typography */
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace,
+               SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+               "Courier New", monospace;
+
+  /* Spacing / sizing */
+  --radius-panel: 2px;
+}
+
+/* ───────────────────────────────────────────────
+   Global reset & base
+   ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ───────────────────────────────────────────────
+   Scanline overlay utility
+   Apply .scanlines to any container that needs it
+   ─────────────────────────────────────────────── */
+.scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanlines::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  z-index: 9999;
+}
+
+/* ───────────────────────────────────────────────
+   Component primitives
+   ─────────────────────────────────────────────── */
+
+/* Panel: surface card with neon border glow */
+.panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 1rem;
+}
+
+.panel--neon {
+  border-color: var(--color-neon-dim);
+  box-shadow: 0 0 6px 0 color-mix(in srgb, var(--color-neon) 20%, transparent);
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-panel);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.badge--ok    { background: var(--color-neon-dim);   color: var(--color-neon);   border: 1px solid var(--color-neon-dim); }
+.badge--alert { background: var(--color-alert-dim);  color: var(--color-alert);  border: 1px solid var(--color-alert-dim); }
+.badge--warn  { background: #3a3000;                 color: var(--color-warn);   border: 1px solid #5a5000; }
+
+/* Neon text glow */
+.glow-neon {
+  color: var(--color-neon);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--color-neon) 60%, transparent),
+               0 0 14px color-mix(in srgb, var(--color-neon) 30%, transparent);
+}
+
+/* Alert text glow */
+.glow-alert {
+  color: var(--color-alert);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--color-alert) 60%, transparent);
+}
+
+/* Neon button */
+.btn-neon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: 1px solid var(--color-neon-dim);
+  color: var(--color-neon);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  border-radius: var(--radius-panel);
+}
+
+.btn-neon:hover {
+  background: color-mix(in srgb, var(--color-neon) 10%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-neon) 30%, transparent);
+}
+
+/* Alert button */
+.btn-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: 1px solid var(--color-alert-dim);
+  color: var(--color-alert);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  border-radius: var(--radius-panel);
+}
+
+.btn-alert:hover {
+  background: color-mix(in srgb, var(--color-alert) 10%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-alert) 30%, transparent);
+}
+
+/* Divider */
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0.75rem 0;
+}
+
+/* Input */
+.input-cyber {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-panel);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.input-cyber:focus {
+  border-color: var(--color-neon-dim);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-neon) 15%, transparent);
+}

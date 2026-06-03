@@ -16,7 +16,8 @@ LDFLAGS := -ldflags "-s -w \
 	-X $(MODULE)/internal/rules.KeyringHex=$(RULES_KEYRING_HEX)"
 
 .PHONY: all build build-verifier test bench bench-egress bench-egress-long bench-egress-release lint test-stability-check clean docker install fmt vet tidy-check fuzz stats docs-check \
-	test-runtime-critical test-replay-harness release-audit runtime-policy-audit debt-check release-check hermes-e2e
+	test-runtime-critical test-replay-harness release-audit runtime-policy-audit debt-check release-check hermes-e2e \
+	console-web console
 
 all: build
 
@@ -132,3 +133,9 @@ stats: ## Print canonical stats
 
 docs-check: ## Check public docs for known stale claims and print canonical stats
 	@./scripts/docs-check.sh
+
+console-web:
+	cd internal/console/web/app && npm ci && npm run build
+
+console: console-web
+	go build -trimpath $(LDFLAGS) -o pipelock-console ./cmd/pipelock-console
