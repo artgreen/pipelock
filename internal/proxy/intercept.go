@@ -199,6 +199,13 @@ func wrapBuffered(conn net.Conn, r *bufio.Reader) net.Conn {
 // The proxy passes its SSRF-safe dialer to prevent DNS rebinding TOCTOU.
 type dialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
+// errTunnelAudited marks an error that interceptTunnel has already written to
+// the audit log (e.g. a client TLS handshake failure recorded as a structured
+// "blocked" event). The CONNECT caller checks for it and skips a redundant
+// second LogError that would otherwise emit the same failure again at error
+// level. errors.Is still sees the wrapped cause (context.Canceled, net.ErrClosed, etc.).
+var errTunnelAudited = errors.New("tunnel error already audited")
+
 // interceptTunnel performs TLS MITM on a hijacked CONNECT tunnel.
 // It terminates TLS with the client using a forged cert, creates an
 // http.Server to read inner requests, scans them, and forwards to
@@ -246,7 +253,10 @@ func interceptTunnel(
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		ic.Metrics.RecordTLSIntercept("handshake_error")
 		ic.Logger.LogBlocked(ictx, "tls_handshake_error", err.Error())
-		return fmt.Errorf("client TLS handshake: %w", err)
+		// Already written to the audit log as a structured "blocked" event.
+		// Mark it so the CONNECT caller does not re-log the same failure at
+		// error level (errTunnelAudited).
+		return fmt.Errorf("client TLS handshake: %w", errors.Join(err, errTunnelAudited))
 	}
 	ic.Metrics.RecordTLSHandshake("client", time.Since(handshakeStart))
 
