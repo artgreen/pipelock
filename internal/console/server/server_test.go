@@ -4,6 +4,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/luckyPipewrench/pipelock/internal/console/auth"
+	"github.com/luckyPipewrench/pipelock/internal/console/configintents"
 	"github.com/luckyPipewrench/pipelock/internal/console/configsvc"
 	"github.com/luckyPipewrench/pipelock/internal/console/events"
 	"github.com/luckyPipewrench/pipelock/internal/console/pipelockclient"
@@ -50,6 +52,7 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/config"},
 		{http.MethodPost, "/api/config"},
 		{http.MethodPost, "/api/config/validate"},
+		{http.MethodPost, "/api/config/unblock-proposal"},
 		{http.MethodGet, "/api/service"},
 		{http.MethodPost, "/api/service/restart"},
 		{http.MethodPost, "/api/logout"},
@@ -104,5 +107,59 @@ func TestSetupRejectedWhenAlreadyConfigured(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/setup", strings.NewReader(`{"password":"new"}`)))
 	if rec.Code != http.StatusConflict {
 		t.Errorf("setup when configured should 409, got %d", rec.Code)
+	}
+}
+
+func TestUnblockProposalEndpoint(t *testing.T) {
+	hash, _ := auth.HashPassword("pw")
+	h := newTestServer(t, t.TempDir()+"/pipelock.yaml", hash)
+
+	// Unauthenticated request must be 401.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/unblock-proposal", strings.NewReader(`{"target":"10.1.2.3","reason":"ssrf_private_ip"}`)))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthed: got %d, want 401", rec.Code)
+	}
+
+	// Log in.
+	loginRec := httptest.NewRecorder()
+	h.ServeHTTP(loginRec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(`{"password":"pw"}`)))
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie after login")
+	}
+	cookie := cookies[0]
+
+	// Valid request → 200 with expected proposal.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/unblock-proposal", strings.NewReader(`{"target":"10.1.2.3","reason":"ssrf_private_ip"}`))
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("valid proposal: got %d body=%s", rec.Code, rec.Body.String())
+	}
+	_ = rec.Result().Body.Close()
+	var prop configintents.Proposal
+	if err := json.NewDecoder(strings.NewReader(rec.Body.String())).Decode(&prop); err != nil {
+		t.Fatalf("decode proposal: %v", err)
+	}
+	if prop.Op != configintents.OpListAdd {
+		t.Errorf("op = %q, want %q", prop.Op, configintents.OpListAdd)
+	}
+	if prop.Path != configintents.PathSSRFIPAllowlist {
+		t.Errorf("path = %q, want %q", prop.Path, configintents.PathSSRFIPAllowlist)
+	}
+	if prop.Value != "10.1.2.3/32" {
+		t.Errorf("value = %q, want %q", prop.Value, "10.1.2.3/32")
+	}
+
+	// Unknown reason → 422.
+	req2 := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/unblock-proposal", strings.NewReader(`{"target":"1.2.3.4","reason":"nope"}`))
+	req2.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	_ = rec2.Result().Body.Close()
+	if rec2.Code != http.StatusUnprocessableEntity {
+		t.Errorf("unknown reason: got %d, want 422", rec2.Code)
 	}
 }

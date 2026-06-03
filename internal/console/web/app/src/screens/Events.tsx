@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
-import { EVENT_STREAM_CAP, useEventStream, type PipelockEvent } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import { EVENT_STREAM_CAP, useEventStream, type PipelockEvent, getConfig, validateConfig, applyConfig } from '../api'
 import { eventTarget, formatTime, severityClass } from '../lib/format'
 import ScreenHeader from '../components/ScreenHeader'
 import Drawer, { JsonBlock } from '../components/Drawer'
+import UnblockDialog from './config/UnblockDialog'
 
 type SevFilter = 'all' | 'block' | 'warn' | 'info'
 
@@ -14,11 +15,60 @@ function bucket(sev: string): 'block' | 'warn' | 'info' {
   return 'info'
 }
 
+// Reasons the backend supports unblocking. "Allowing" a DLP/secret-leak or
+// injection block is semantically wrong for a security product, so the
+// "allow this…" action is gated to destination-block layers only. Eligibility
+// and the proposed reason both derive from the stable `fields.scanner` LABEL,
+// not `fields.reason` — the latter is free-text audit prose (e.g. "domain in
+// blocklist: evil.com"), so matching reason codes against it never works.
+// This map mirrors the proxy's scanner→blockreason mapping for the three layers
+// the unblock endpoint supports.
+const SCANNER_TO_UNBLOCK_REASON: Record<string, string> = {
+  ssrf: 'ssrf_private_ip',
+  ssrf_metadata: 'ssrf_metadata',
+  blocklist: 'domain_blocklist',
+}
+function unblockReason(ev: PipelockEvent): string | null {
+  const scanner = ev.fields.scanner
+  return typeof scanner === 'string' ? (SCANNER_TO_UNBLOCK_REASON[scanner] ?? null) : null
+}
+
+// Lazily loads the current config buffer then renders the UnblockDialog.
+function UnblockGate({ target, reason, matchedPattern, onClose }: { target: string; reason: string; matchedPattern: string; onClose: () => void }) {
+  const [buf, setBuf] = useState<string | null>(null)
+  useEffect(() => { void getConfig().then(setBuf).catch(() => setBuf('')) }, [])
+  if (buf === null) return null
+  return (
+    <UnblockDialog
+      target={target} reason={reason} matchedPattern={matchedPattern} buffer={buf}
+      onCancel={onClose}
+      onApply={async (patched, _summary) => {
+        void _summary // no toast on this path; summary is consumed by callers that surface it
+        const v = await validateConfig(patched)
+        if (!v.ok) throw new Error(v.error || 'invalid config')
+        await applyConfig(patched)
+        onClose()
+      }}
+    />
+  )
+}
+
 export default function Events() {
   const { events, connected } = useEventStream()
   const [sev, setSev] = useState<SevFilter>('all')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<PipelockEvent | null>(null)
+  const [unblock, setUnblock] = useState<{ target: string; reason: string; matchedPattern: string } | null>(null)
+
+  const openUnblock = (e: PipelockEvent) => {
+    const reason = unblockReason(e)
+    if (!reason) return
+    setUnblock({
+      target: String(e.fields.target),
+      reason,
+      matchedPattern: String(e.fields.pattern ?? ''),
+    })
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -71,11 +121,12 @@ export default function Events() {
 
       {/* Table */}
       <div className="panel" style={{ flex: 1, minHeight: 0, padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr 1.4fr 130px', gap: '0.75rem', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-border)', color: 'var(--color-muted)', fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', flexShrink: 0, background: 'var(--color-surface)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr 1.4fr 130px auto', gap: '0.75rem', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-border)', color: 'var(--color-muted)', fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', flexShrink: 0, background: 'var(--color-surface)' }}>
           <span>severity</span>
           <span>type</span>
           <span>target</span>
           <span>time</span>
+          <span />
         </div>
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           {filtered.length === 0 ? (
@@ -94,7 +145,7 @@ export default function Events() {
                     width: '100%',
                     textAlign: 'left',
                     display: 'grid',
-                    gridTemplateColumns: '92px 1fr 1.4fr 130px',
+                    gridTemplateColumns: '92px 1fr 1.4fr 130px auto',
                     gap: '0.75rem',
                     alignItems: 'center',
                     padding: '0.5rem 0.9rem',
@@ -113,6 +164,25 @@ export default function Events() {
                   <span style={{ fontSize: '0.76rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.type}</span>
                   <span style={{ fontSize: '0.74rem', color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eventTarget(e.fields)}</span>
                   <span style={{ fontSize: '0.68rem', color: 'var(--color-muted)' }}>{formatTime(e.timestamp)}</span>
+                  {unblockReason(e) != null && e.fields.target != null && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="btn-neon"
+                      style={{ fontSize: '0.64rem', padding: '0.2rem 0.5rem', whiteSpace: 'nowrap' }}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        openUnblock(e)
+                      }}
+                      onKeyDown={(ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ') {
+                          ev.preventDefault()
+                          ev.stopPropagation()
+                          openUnblock(e)
+                        }
+                      }}
+                    >allow this…</span>
+                  )}
                 </button>
               )
             })
@@ -140,6 +210,15 @@ export default function Events() {
           </div>
         )}
       </Drawer>
+
+      {unblock && (
+        <UnblockGate
+          target={unblock.target}
+          reason={unblock.reason}
+          matchedPattern={unblock.matchedPattern}
+          onClose={() => setUnblock(null)}
+        />
+      )}
     </div>
   )
 }

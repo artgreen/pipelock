@@ -66,7 +66,6 @@ func TestTechniqueForScanner_AllMappedEntries(t *testing.T) {
 		{"header_dlp", "T1048"},
 
 		// TLS interception
-		{"tls_intercept", "T1557"},
 		{"tls_response_blocked", "T1659"},
 		{"tls_authority_mismatch", "T1090.004"},
 		{"tls_handshake_error", "T1573"},
@@ -147,7 +146,7 @@ func TestTechniqueMap_NoDuplicateKeys(t *testing.T) {
 	// This test is a compile-time guarantee in Go (duplicate map keys are a
 	// compile error), but we verify the map has the expected number of entries
 	// to catch accidental deletions during refactoring.
-	const expectedEntries = 35
+	const expectedEntries = 34
 	if len(techniqueMap) != expectedEntries {
 		t.Errorf("techniqueMap has %d entries, expected %d (was an entry added or removed?)", len(techniqueMap), expectedEntries)
 	}

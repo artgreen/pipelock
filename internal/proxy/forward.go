@@ -594,7 +594,10 @@ func (p *Proxy) handleConnect(w http.ResponseWriter, r *http.Request) {
 		safeClose(targetConn, "targetConn", p.logger)
 		targetConn = nil
 		p.metrics.RecordTLSIntercept("intercepted")
-		p.logger.LogAnomaly(targetCtx, "tls_intercept", "TLS MITM interception active", 0) // 0: informational, not anomalous
+		// Operator-configured interception is not an anomaly: the tls_intercept_total
+		// metric (RecordTLSIntercept above) is the canonical signal. Previously this
+		// emitted a warn-level "anomaly" tagged MITRE T1557 on every CONNECT, flagging
+		// pipelock's own configured behavior as an adversary technique.
 		// Wrap clientConn with buffered reader so any bytes peeked during
 		// SNI verification (ClientHello) are available to the TLS server.
 		interceptConn := wrapBuffered(clientConn, clientReader)
