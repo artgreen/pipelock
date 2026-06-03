@@ -60,6 +60,7 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 		{http.MethodGet, "/api/events"},
 		{http.MethodGet, "/api/config/schema"},
 		{http.MethodGet, "/api/config/values"},
+		{http.MethodPost, "/api/config/structured"},
 	}
 	for _, c := range cases {
 		rec := httptest.NewRecorder()
@@ -250,5 +251,57 @@ func TestConfigSchemaAndValuesEndpoints(t *testing.T) {
 	// present["mode"] must be true.
 	if !valResp.Present["mode"] {
 		t.Errorf("present[mode] = false, want true")
+	}
+}
+
+func TestConfigStructuredEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pipelock.yaml")
+	if err := os.WriteFile(path, []byte("mode: audit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hash, _ := auth.HashPassword("pw")
+	h := newTestServer(t, path, hash)
+
+	// Unauthenticated request must be 401.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"metrics_listen":"127.0.0.1:9095"}}`)))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated: got %d, want 401", rec.Code)
+	}
+
+	// Log in.
+	loginRec := httptest.NewRecorder()
+	h.ServeHTTP(loginRec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/login", strings.NewReader(`{"password":"pw"}`)))
+	cookies := loginRec.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("no session cookie after login")
+	}
+	cookie := cookies[0]
+
+	// Valid patch → 204 and file updated.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"metrics_listen":"127.0.0.1:9095"}}`))
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("valid patch: got %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := os.ReadFile(filepath.Clean(path))
+	if !strings.Contains(string(got), "metrics_listen: 127.0.0.1:9095") {
+		t.Errorf("config not updated: %q", got)
+	}
+
+	// Invalid patch (bogus mode value rejected by ValidateBytes) → 400 and file unchanged.
+	req2 := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/config/structured", strings.NewReader(`{"changes":{"mode":"bogus-mode"}}`))
+	req2.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Fatalf("invalid patch: got %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	got2, _ := os.ReadFile(filepath.Clean(path))
+	if !strings.Contains(string(got2), "mode: audit") {
+		t.Errorf("file should still contain mode: audit after rejected patch: %q", got2)
 	}
 }
