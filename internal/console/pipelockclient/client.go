@@ -5,6 +5,7 @@
 package pipelockclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -122,4 +123,57 @@ func (c *Client) GetStats(ctx context.Context) (*Stats, error) {
 		return nil, err
 	}
 	return &s, nil
+}
+
+// KillSwitchStatus mirrors pipelock's /api/v1/killswitch/status response.
+type KillSwitchStatus struct {
+	Active  bool            `json:"active"`
+	Sources map[string]bool `json:"sources"`
+	Message string          `json:"message,omitempty"`
+}
+
+// GetKillSwitch fetches current kill switch status.
+func (c *Client) GetKillSwitch(ctx context.Context) (*KillSwitchStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.killswitchURL+"/api/v1/killswitch/status", nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.apiToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("killswitch status: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("killswitch status returned %d", resp.StatusCode)
+	}
+	var s KillSwitchStatus
+	if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// SetKillSwitch toggles the API-sourced kill switch.
+func (c *Client) SetKillSwitch(ctx context.Context, active bool) error {
+	body, _ := json.Marshal(map[string]bool{"active": active})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.killswitchURL+"/api/v1/killswitch", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("killswitch toggle: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("killswitch toggle returned %d", resp.StatusCode)
+	}
+	return nil
 }

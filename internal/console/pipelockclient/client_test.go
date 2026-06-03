@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,50 @@ func TestGetStats(t *testing.T) {
 	}
 	if stats.Requests.Blocked != 3 || stats.Sessions.Active != 2 {
 		t.Errorf("unexpected stats: %+v", stats)
+	}
+}
+
+func TestKillSwitchToggleSendsBearer(t *testing.T) {
+	var gotAuth, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		b := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(b)
+		gotBody = string(b)
+		_, _ = w.Write([]byte(`{"active":true,"source":"api"}`))
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, APIToken: "secret123"})
+	if err := c.SetKillSwitch(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if gotAuth != "Bearer secret123" {
+		t.Errorf("missing/incorrect bearer: %q", gotAuth)
+	}
+	if !strings.Contains(gotBody, `"active":true`) {
+		t.Errorf("unexpected body: %q", gotBody)
+	}
+}
+
+func TestGetKillSwitchStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/killswitch/status" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(`{"active":true,"sources":{"api":true,"config":false},"message":"locked"}`))
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, APIToken: "tok"})
+	st, err := c.GetKillSwitch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !st.Active || !st.Sources["api"] || st.Message != "locked" {
+		t.Errorf("unexpected status: %+v", st)
 	}
 }
