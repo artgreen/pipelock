@@ -318,8 +318,7 @@
           "key": "secrets_file",
           "label": "Secrets File",
           "type": "string",
-          "default": "",
-          "secret": true
+          "default": ""
         },
         {
           "path": "dlp.min_env_secret_length",
@@ -327,8 +326,7 @@
           "label": "Min Env Secret Length",
           "type": "int",
           "help": "minimum env var length for leak detection (default 16)",
-          "default": 0,
-          "secret": true
+          "default": 0
         },
         {
           "path": "dlp.include_defaults",

@@ -103,13 +103,20 @@ func classify(goType string, structNames map[string]bool) configschema.FieldType
 }
 
 // isSecretKey reports whether a yaml key names a secret-bearing field whose
-// value must never be surfaced to the console UI in plaintext.
-func isSecretKey(key string) bool {
+// value must never be surfaced to the console UI in plaintext. Only string
+// fields can hold a secret value: a non-string field (path-shaped, int, etc.)
+// is never redacted, so e.g. dlp.secrets_file (a file PATH) and
+// dlp.min_env_secret_length (an INT) are not flagged despite containing
+// "secret" in the key.
+func isSecretKey(key, goType string) bool {
+	if goType != "string" {
+		return false
+	}
 	switch key {
-	case "api_token", "dsn", "session_secret", "auth_token":
+	case "api_token", "dsn", "session_secret", "auth_token", "client_secret", "secret":
 		return true
 	}
-	return strings.Contains(key, "secret") ||
+	return strings.HasSuffix(key, "_secret") ||
 		strings.Contains(key, "password") ||
 		strings.Contains(key, "private_key")
 }
@@ -324,7 +331,7 @@ func (b *builder) buildFields(typeName, parentPath string, depth int) []configsc
 			Label:        label(fi.yamlKey),
 			Type:         ft,
 			Help:         fi.doc,
-			Secret:       isSecretKey(fi.yamlKey),
+			Secret:       isSecretKey(fi.yamlKey, fi.goType),
 			AdvancedOnly: ft == configschema.TypeOpaque || advancedTypes[bareType(fi.goType)],
 		}
 		if ft == configschema.TypeEnum {
