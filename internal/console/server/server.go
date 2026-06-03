@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/luckyPipewrench/pipelock/internal/console/auth"
+	"github.com/luckyPipewrench/pipelock/internal/console/configintents"
 	"github.com/luckyPipewrench/pipelock/internal/console/configsvc"
 	"github.com/luckyPipewrench/pipelock/internal/console/events"
 	"github.com/luckyPipewrench/pipelock/internal/console/pipelockclient"
@@ -127,6 +128,23 @@ func New(d Deps) http.Handler {
 			return
 		}
 		writeJSON(w, configsvc.Validate(raw))
+	})))
+	mux.Handle("POST /api/config/unblock-proposal", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Target         string `json:"target"`
+			Reason         string `json:"reason"`
+			MatchedPattern string `json:"matched_pattern"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		prop, err := configintents.ProposeUnblock(body.Target, body.Reason, body.MatchedPattern)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		writeJSON(w, prop)
 	})))
 	mux.Handle("POST /api/config", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, readErr := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
