@@ -17,7 +17,7 @@ LDFLAGS := -ldflags "-s -w \
 
 .PHONY: all build build-verifier test bench bench-egress bench-egress-long bench-egress-release lint test-stability-check clean docker install fmt vet tidy-check fuzz stats docs-check \
 	test-runtime-critical test-replay-harness release-audit runtime-policy-audit debt-check release-check hermes-e2e \
-	console-web console
+	console-web console configschema configschema-check
 
 all: build
 
@@ -139,3 +139,9 @@ console-web:
 
 console: console-web
 	go build -trimpath $(LDFLAGS) -o pipelock-console ./cmd/pipelock-console
+
+configschema:
+	cd internal/config/configschema && go run ./gen
+
+configschema-check: configschema
+	git diff --exit-code internal/config/configschema/descriptor.json
