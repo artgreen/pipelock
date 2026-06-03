@@ -4,21 +4,21 @@ import { coerce } from './fieldvalue'
 
 interface Props {
   field: SchemaField
-  value: unknown          // current effective value (may be REDACTED_SENTINEL for secrets)
-  present: boolean        // explicitly set in the file (vs default)
+  valueOf: (path: string) => unknown       // resolved effective value overlaid with pending changes
+  presentOf: (path: string) => boolean     // explicitly set in the file
   onChange: (path: string, value: unknown) => void  // value null => reset to default
   onAdvanced?: () => void // switch to raw editor (for opaque/advanced fields)
 }
 
-export default function Field({ field, value, present, onChange, onAdvanced }: Props) {
+export default function Field({ field, valueOf, presentOf, onChange, onAdvanced }: Props) {
   return (
     <div style={wrapStyle}>
       {field.type === 'group'
-        ? <GroupWidget field={field} value={value} present={present} onChange={onChange} onAdvanced={onAdvanced} />
+        ? <GroupWidget field={field} valueOf={valueOf} presentOf={presentOf} onChange={onChange} onAdvanced={onAdvanced} />
         : (
           <>
-            <FieldHeader field={field} present={present} />
-            <FieldWidget field={field} value={value} present={present} onChange={onChange} onAdvanced={onAdvanced} />
+            <FieldHeader field={field} present={presentOf(field.path)} />
+            <FieldWidget field={field} valueOf={valueOf} presentOf={presentOf} onChange={onChange} onAdvanced={onAdvanced} />
           </>
         )}
     </div>
@@ -47,10 +47,11 @@ function FieldHeader({ field, present }: { field: SchemaField; present: boolean 
 
 // ─── Dispatcher ─────────────────────────────────────────────────────────────
 
-function FieldWidget({ field, value, present: _present, onChange, onAdvanced }: Props) {
+function FieldWidget({ field, valueOf, presentOf, onChange, onAdvanced }: Props) {
+  const value = valueOf(field.path)
   switch (field.type) {
     case 'group':
-      return <GroupWidget field={field} value={value} present={_present} onChange={onChange} onAdvanced={onAdvanced} />
+      return <GroupWidget field={field} valueOf={valueOf} presentOf={presentOf} onChange={onChange} onAdvanced={onAdvanced} />
     case 'bool':
       return <BoolWidget field={field} value={value} onChange={onChange} />
     case 'tristate':
@@ -75,11 +76,7 @@ function FieldWidget({ field, value, present: _present, onChange, onAdvanced }: 
 
 // ─── Group widget ────────────────────────────────────────────────────────────
 
-function GroupWidget({ field, value, present, onChange, onAdvanced }: Props) {
-  const groupObj = (value != null && typeof value === 'object' && !Array.isArray(value))
-    ? (value as Record<string, unknown>)
-    : {}
-
+function GroupWidget({ field, valueOf, presentOf, onChange, onAdvanced }: Props) {
   return (
     <div>
       <div style={subheadingStyle}>{field.label}</div>
@@ -89,8 +86,8 @@ function GroupWidget({ field, value, present, onChange, onAdvanced }: Props) {
             <Field
               key={child.path}
               field={child}
-              value={groupObj[child.key]}
-              present={present}
+              valueOf={valueOf}
+              presentOf={presentOf}
               onChange={onChange}
               onAdvanced={onAdvanced}
             />

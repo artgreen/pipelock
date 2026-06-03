@@ -6,7 +6,6 @@ import {
   getConfigValues,
   type ConfigSchema,
   type ConfigValues,
-  type SchemaField,
 } from '../../api'
 import Banner from '../../components/Banner'
 import { useToast } from '../../components/toast-context'
@@ -130,7 +129,7 @@ export default function AllSettings({ onOpenAdvanced }: Props) {
   // ── Derived ──
 
   const pendingCount = Object.keys(changes).length
-  const selectedTopLevel =
+  const selectedEntry =
     schema?.sections.find((s) => s.key === selectedSection) ?? null
 
   // ── Render: loading / error ──
@@ -152,6 +151,15 @@ export default function AllSettings({ onOpenAdvanced }: Props) {
       </div>
     )
   }
+
+  // ── Value resolvers (pending changes overlay effective config) ──
+
+  const valueOf = (path: string): unknown =>
+    Object.prototype.hasOwnProperty.call(changes, path)
+      ? changes[path]
+      : getPath(values.effective, path)
+
+  const presentOf = (path: string): boolean => values.present[path] === true
 
   // ── Render: main ──
 
@@ -176,16 +184,22 @@ export default function AllSettings({ onOpenAdvanced }: Props) {
 
         {/* Right: fields */}
         <div style={contentStyle}>
-          {selectedTopLevel ? (
-            <SectionPane
-              section={selectedTopLevel}
-              values={values}
-              changes={changes}
-              highlightPath={highlightPath}
-              highlightRef={highlightRef}
-              onChange={handleChange}
-              onAdvanced={onOpenAdvanced}
-            />
+          {selectedEntry ? (
+            <div>
+              <div style={sectionHeadingStyle}>{selectedEntry.label}</div>
+              <div
+                ref={highlightPath === selectedEntry.path ? highlightRef : undefined}
+                style={highlightPath === selectedEntry.path ? highlightWrapStyle : undefined}
+              >
+                <Field
+                  field={selectedEntry}
+                  valueOf={valueOf}
+                  presentOf={presentOf}
+                  onChange={handleChange}
+                  onAdvanced={onOpenAdvanced}
+                />
+              </div>
+            </div>
           ) : (
             <span style={{ color: 'var(--color-muted)', fontSize: '0.78rem' }}>select a section</span>
           )}
@@ -227,68 +241,6 @@ export default function AllSettings({ onOpenAdvanced }: Props) {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-// ─── SectionPane ──────────────────────────────────────────────────────────────
-
-interface SectionPaneProps {
-  section: SchemaField
-  values: ConfigValues
-  changes: Record<string, unknown>
-  highlightPath: string | null
-  highlightRef: React.RefObject<HTMLDivElement | null>
-  onChange: (path: string, value: unknown) => void
-  onAdvanced?: () => void
-}
-
-function SectionPane({
-  section,
-  values,
-  changes,
-  highlightPath,
-  highlightRef,
-  onChange,
-  onAdvanced,
-}: SectionPaneProps) {
-  const fields = section.children ?? []
-
-  if (fields.length === 0) {
-    return (
-      <span style={{ color: 'var(--color-muted)', fontSize: '0.78rem' }}>
-        no configurable fields in this section
-      </span>
-    )
-  }
-
-  return (
-    <div>
-      <div style={sectionHeadingStyle}>{section.label}</div>
-      {fields.map((field) => {
-        const effectiveValue =
-          field.path in changes
-            ? changes[field.path]
-            : getPath(values.effective, field.path)
-        const present = values.present[field.path] === true
-        const isHighlighted = highlightPath === field.path
-
-        return (
-          <div
-            key={field.path}
-            ref={isHighlighted ? highlightRef : undefined}
-            style={isHighlighted ? highlightWrapStyle : undefined}
-          >
-            <Field
-              field={field}
-              value={effectiveValue}
-              present={present}
-              onChange={onChange}
-              onAdvanced={onAdvanced}
-            />
-          </div>
-        )
-      })}
     </div>
   )
 }
