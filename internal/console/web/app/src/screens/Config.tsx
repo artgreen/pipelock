@@ -7,7 +7,7 @@ import { hasChanges, lineDiff, readTopLevelScalar, setTopLevelScalar, type DiffL
 import ScreenHeader from '../components/ScreenHeader'
 import Banner from '../components/Banner'
 import { useToast } from '../components/toast-context'
-import ListEditor from './config/ListEditor'
+import AllSettings from './config/AllSettings'
 import UnblockDialog from './config/UnblockDialog'
 
 const MODES = ['strict', 'balanced', 'audit', 'permissive'] as const
@@ -22,7 +22,7 @@ export default function Config() {
   const [validating, setValidating] = useState(false)
   const [applying, setApplying] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
-  const [view, setView] = useState<'guided' | 'advanced'>('guided')
+  const [view, setView] = useState<'settings' | 'advanced'>('settings')
   const [unblockOpen, setUnblockOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -139,9 +139,10 @@ export default function Config() {
         right={
           <>
             <div style={{ display: 'flex', gap: '0.25rem', marginRight: '0.5rem' }}>
-              <button type="button" onClick={() => setView('guided')} style={modeChip(view === 'guided')}>guided</button>
-              <button type="button" onClick={() => setView('advanced')} style={modeChip(view === 'advanced')}>advanced</button>
+              <button type="button" onClick={() => setView('settings')} style={modeChip(view === 'settings')}>Settings</button>
+              <button type="button" onClick={() => setView('advanced')} style={modeChip(view === 'advanced')}>Advanced</button>
             </div>
+            <button type="button" className="btn-neon" onClick={() => setUnblockOpen(true)} disabled={busy}>allow a destination…</button>
             <button type="button" className="btn-neon" onClick={() => setShowDiff((d) => !d)} disabled={!dirty} style={{ opacity: dirty ? 1 : 0.4 }}>
               {showDiff ? 'hide diff' : 'show diff'}
             </button>
@@ -165,7 +166,7 @@ export default function Config() {
 
       {view === 'advanced' && (
         <>
-          {/* Quick toggles */}
+          {/* Quick toggles — only shown in Advanced view */}
           <div className="panel" style={{ marginBottom: '0.9rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <span style={{ color: 'var(--color-muted)', fontSize: '0.64rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>mode</span>
@@ -255,21 +256,9 @@ export default function Config() {
           )}
         </div>
       ) : (
-        /* Guided view */
+        /* Settings view — generated All Settings tree */
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <div className="panel" style={{ marginBottom: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem' }}>A destination getting blocked? Allow it safely.</span>
-            <button type="button" className="btn-neon" onClick={() => setUnblockOpen(true)} disabled={busy}>allow a destination…</button>
-          </div>
-          <ListEditor label="SSRF IP allowlist" path="ssrf.ip_allowlist" buffer={buffer} disabled={busy}
-            help="Internal/private IPs to exempt from the SSRF block. Content (DLP) scanning still runs. CIDR form, e.g. 10.1.2.3/32."
-            onChange={(next) => void applyBuffer(next, 'ssrf.ip_allowlist change')} />
-          <ListEditor label="Domain allowlist" path="api_allowlist" buffer={buffer} disabled={busy}
-            help="In strict mode, only these domains are reachable. Does not bypass content scanning."
-            onChange={(next) => void applyBuffer(next, 'api_allowlist change')} />
-          <ListEditor label="Domain blocklist" path="fetch_proxy.monitoring.blocklist" buffer={buffer} disabled={busy}
-            help="Destination patterns that are always blocked, e.g. *.pastebin.com."
-            onChange={(next) => void applyBuffer(next, 'blocklist change')} />
+          <AllSettings onOpenAdvanced={() => setView('advanced')} />
         </div>
       )}
 
