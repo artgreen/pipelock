@@ -17,6 +17,12 @@ import (
 // single-document enforcement, security-boolean fail-closed defaults, normal
 // defaults, then full validation. It lets external callers (e.g. the console)
 // validate submitted config without drifting from startup behavior.
+//
+// Note: file-location-dependent checks that Load performs (license resolution,
+// relative path resolution, and file_sentry watch-path containment) are
+// intentionally NOT run here — they require the real config file path. A config
+// that passes ValidateBytes may still be rejected by pipelock at startup for
+// those reasons (the safe direction: pipelock remains the final gate).
 func ValidateBytes(raw []byte) ([]Warning, error) {
 	cfg := &Config{}
 	decoder := yaml.NewDecoder(bytes.NewReader(raw))

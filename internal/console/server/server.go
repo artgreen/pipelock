@@ -121,11 +121,19 @@ func New(d Deps) http.Handler {
 		_, _ = w.Write(raw)
 	})))
 	mux.Handle("POST /api/config/validate", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
 		writeJSON(w, configsvc.Validate(raw))
 	})))
 	mux.Handle("POST /api/config", d.Auth.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		raw, readErr := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		if readErr != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
 		if err := d.Config.Write(raw); err != nil {
 			var invalid *configsvc.InvalidConfigError
 			if errors.As(err, &invalid) {

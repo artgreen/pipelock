@@ -65,7 +65,9 @@ func buildServer(configPath string) (*http.Server, *consolecfg.ConsoleConfig, er
 		Hub:     events.NewHub(),
 		OnPasswordSet: func(hash string) {
 			cfg.AdminPasswordHash = hash
-			_ = consolecfg.Save(configPath, cfg)
+			if err := consolecfg.Save(configPath, cfg); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "warning: failed to persist admin password to %s: %v\n", configPath, err)
+			}
 		},
 	})
 	srv := &http.Server{
